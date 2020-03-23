@@ -1,3 +1,9 @@
 [submodule "chainer_prednet"]
 	path = chainer_prednet
 	url = https://github.com/LanaSina/chainer_prednet
+[submodule "optical_flow"]
+	path = optical_flow
+	url = https://github.com/LanaSina/Optical_Flow_Analyzer
+[submodule "pytorch_neat"]
+	path = pytorch_neat
+	url = https://github.com/uber-research/PyTorch-NEAT
