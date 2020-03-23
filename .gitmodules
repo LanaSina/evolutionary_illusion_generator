@@ -1,0 +1,3 @@
+[submodule "chainer_prednet"]
+	path = chainer_prednet
+	url = https://github.com/LanaSina/chainer_prednet
