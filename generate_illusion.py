@@ -14,6 +14,8 @@ from pytorch_neat.pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
 from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
 import neat
+import shutil
+import shutil
 import torch
 
 
@@ -34,7 +36,6 @@ def illusion_score(vectors, flipped=False, mirrored=False):
             comp_x = comp_x + (-vector[2]/norm)
         else:
             comp_x = comp_x + vector[2]/norm
-        #comp_y = comp_y + abs(vector[3])/norm
 
     # minimize comp_y, maximize comp_x
     score = comp_x
@@ -186,7 +187,6 @@ def circle_tangent_ratio(vectors, limits = None):
     else:
         s_sum = abs(global_sum[0]/abs_sum[0]) + abs(global_sum[1]/abs_sum[1])
         s_sum = s_sum/2
-        #s_sum = abs(global_sum[0]) + abs(global_sum[1])
 
     return [mean_ratio,s_sum]
 
@@ -223,22 +223,12 @@ def create_grid(x_res = 32, y_res = 32, scaling = 1.0):
 
     num_points = x_res*y_res
     # repeat x a few times
-    # rep = 5
-    # nx = int(160/rep)
-    # sc = scaling/rep
-    # a = np.linspace(-1*sc, sc, num = nx)
-    # x_range = np.tile(a, rep)
     x_range = np.linspace(-1*scaling, scaling, num = x_res)
     y_range = np.linspace(-1*scaling, scaling, num = y_res)
     x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
     y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
     r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
 
-    # s_mat_1 = y_mat < 0
-    # s_mat_1 = s_mat_1.astype(int)
-    # s_mat_m1 = y_mat >= 0
-    # s_mat_m1 = s_mat_m1.astype(int)
-    # s_mat = s_mat_1 - s_mat_m1
     s_mat = np.ones((num_points))
 
     x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
@@ -336,7 +326,7 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
     return image
 
 # population:  [id, net]
-def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3):
+def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir = "."):
     print("fitnesses of ", len(population))
     output_dir = "temp" + str(id) + "/"
     repeat = 10
@@ -350,13 +340,6 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3):
     prediction_dir = output_dir + "/original/prediction/"
     if not os.path.exists(prediction_dir):
         os.makedirs(prediction_dir)
-
-    # mirror_dir = output_dir + "mirrored/"
-    # if not os.path.exists(mirror_dir+ "flow/"):
-    #     os.makedirs(mirror_dir +"flow/")
-    # mirror_images_dir = mirror_dir+ "images/"
-    # if not os.path.exists(mirror_images_dir):
-    #     os.makedirs(mirror_images_dir)
 
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
@@ -383,56 +366,26 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3):
         i = i + 1
 
     # runs repeat x times on the input image, save in result folder
-    test_prednet(initmodel = model_name, images_list = repeated_images_list, size=size, 
+    test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=repeat,
-                reset_each = True,
+                reset_each = True, verbose = 0
                 )
     # calculate flows
     i = 0
     original_vectors = [None] * total_count
-    #fidelity = [None] * len(population)
     for input_image in images_list:
         prediction_image_path = prediction_dir + str(i).zfill(10) + ".png"
         results = lucas_kanade(input_image, prediction_image_path, output_dir+"/original/flow/", save=True)
-        #fidelity[i] = get_fidelity(input_image, prediction_image_path)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
         else:
             original_vectors[i] = [[0,0,-1000,0]]
         i = i + 1
 
-    # #mirror images
-    # mirror_multiple(output_dir + "images/", mirror_images_dir, TransformationType.MirrorAndFlip)
-    # #print("mirror images finished")
-    # temp_list = sorted(os.listdir(mirror_images_dir))
-    # temp_list = temp_list[0:len(images_list)]
-    # mirror_images_list = [mirror_images_dir + im for im in temp_list]
-    # repeated_mirror_list = [mirror_images_dir + im for im in temp_list for i in range(repeat) ]
-
-    # # predict
-    # test_prednet(initmodel = model_name, images_list = repeated_mirror_list, size=size, 
-    #             channels = channels, gpu = gpu, output_dir = mirror_dir + "prediction/", skip_save_frames=repeat,
-    #             reset_each = True
-    #             )
-    # # calculate flow
-    # i = 0
-    # mirrored_vectors = [None] * len(population)
-    # for input_image in mirror_images_list:
-    #     print(input_image)
-    #     prediction_image_path = mirror_dir + "prediction/" + str(i).zfill(10) + ".png"
-    #     print(prediction_image_path)
-    #     results = lucas_kanade(input_image, prediction_image_path, output_dir+"/mirrored/flow/", save=True)
-    #     if results["vectors"]:
-    #         mirrored_vectors[i] = np.asarray(results["vectors"])
-    #     else:
-    #         mirrored_vectors[i] = [[0,0,-1000,0]]
-    #     i = i + 1
-
     # calculate score
     #radius_limits = [20,50]
     scores = [None] * len(population)
     for i in range(0, len(population)):
-        #score = combined_illusion_score(original_vectors[i], mirrored_vectors[i])
         final_score = -100
         temp_index = -1
         mean_score = 0
@@ -477,10 +430,19 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3):
 
     print("scores",scores)
     i = 0
+    best_score = 0
+    best_illusion = 0
     for genome_id, genome in population:
         genome.fitness = scores[i][1]
+        if (scores[i][1]> best_score):
+            best_illusion = i
         i = i+1
 
+    # save best illusion
+    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+    move_to_name = best_dir + "/temporary_best.png"
+    shutil.copy(jpgfile, dst_dir)
+    
 
 def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     repeat = 6
@@ -493,7 +455,7 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     gpu = 0
     c_dim = 3
 
-    best_dir = output_dir + "best/"
+    best_dir = output_dir + "_best/"
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
@@ -503,7 +465,7 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
                          config_path)
 
     def eval_genomes(genomes, config):
-        get_fitnesses_neat(genomes, model_name, config, c_dim=c_dim)
+        get_fitnesses_neat(genomes, model_name, config, c_dim=c_dim, best_dir=best_dir)
 
     checkpointer = neat.Checkpointer(100)
 
