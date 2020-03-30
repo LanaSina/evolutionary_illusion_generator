@@ -327,7 +327,7 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
 
 # population:  [id, net]
 def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir = "."):
-    print("fitnesses of ", len(population))
+    print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp" + str(id) + "/"
     repeat = 10
     w = 160
@@ -365,6 +365,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
             j = j+1
         i = i + 1
 
+    print("Predicting illusions....")
     # runs repeat x times on the input image, save in result folder
     test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=repeat,
@@ -375,7 +376,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     original_vectors = [None] * total_count
     for input_image in images_list:
         prediction_image_path = prediction_dir + str(i).zfill(10) + ".png"
-        results = lucas_kanade(input_image, prediction_image_path, output_dir+"/original/flow/", save=True)
+        results = lucas_kanade(input_image, prediction_image_path, output_dir+"/original/flow/", save=True, verbose = 0)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
         else:
@@ -441,8 +442,8 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     # save best illusion
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/temporary_best.png"
-    shutil.copy(jpgfile, dst_dir)
-    
+    shutil.copy(image_name, move_to_name)
+
 
 def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     repeat = 6
@@ -455,7 +456,7 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     gpu = 0
     c_dim = 3
 
-    best_dir = output_dir + "_best/"
+    best_dir = output_dir# + "_best/"
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
