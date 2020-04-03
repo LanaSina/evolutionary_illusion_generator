@@ -347,10 +347,12 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
                 pixels_np = pixels.numpy()
                 pixels = node_func(x=inv_x, y=inp_y, s = inp_s)
                 reverse_pixels_np = pixels.numpy()
-                for x_slice in range(0,x_rep):
-                    start = x_slice*x_subwidth
-                    image_array[0:half_h, start:(start+x_subwidth), c] = np.reshape(pixels_np, (half_h,x_subwidth))
-                    image_array[half_h:h, start:(start+x_subwidth), c] = np.reshape(reverse_pixels_np, (half_h,x_subwidth))
+                # for x_slice in range(0,x_rep):
+                #     start = x_slice*x_subwidth
+                #     image_array[0:half_h, start:(start+x_subwidth), c] = np.reshape(pixels_np, (half_h,x_subwidth))
+                #     image_array[half_h:h, start:(start+x_subwidth), c] = np.reshape(reverse_pixels_np, (half_h,x_subwidth))
+
+                image_array[0:h, 0:w, c] = np.reshape(reverse_pixels_np, (h,w))
 
                 c = c + 1
             img_data = np.array(image_array*255.0, dtype=np.uint8)
@@ -388,7 +390,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     channels = [3,48,96,192]
     gpu = 0
 
-    prediction_dir = output_dir + "/original/prediction/"
+    prediction_dir = output_dir + "/images/prediction/"
     if not os.path.exists(prediction_dir):
         os.makedirs(prediction_dir)
 
@@ -428,7 +430,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     original_vectors = [None] * total_count
     for input_image in images_list:
         prediction_image_path = prediction_dir + str(i).zfill(10) + ".png"
-        results = lucas_kanade(input_image, prediction_image_path, output_dir+"/original/flow/", save=True, verbose = 0)
+        results = lucas_kanade(input_image, prediction_image_path, output_dir+"/images/flow/", save=True, verbose = 0)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
         else:
@@ -454,7 +456,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
-                    score = score + 0.1
+                    score = score + 0.1*len(good_vectors)
                 #     step = h/2
                 #     y = 0                
                 #     count = 0
@@ -479,16 +481,25 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 #     final_score = score
                 #     temp_index = index
 
-                    score = score + divergence_convergence_score(good_vectors, w, h)
-                    mean_score = mean_score + score
+                    score_d = divergence_convergence_score(good_vectors, w, h)
+                    # bonus points
+                    if(score_d>0):
+                        # is the ideal number of vectors
+                        # temp = 24 - len(good_vectors)
+                        # if(temp==0):
+                        #     n_dist = 1
+                        # else:
+                        #     n_dist = 1/temp*temp
+                        score = score + score_d
+                        mean_score = mean_score + score
 
                 if score>final_score:
                     final_score = score
                     temp_index = index
         
-        print("index ", temp_index, " score ", final_score)
-        # scores[i] =[i, mean_score/pertype_count]
-        scores[i] =[i, final_score]
+        m =  mean_score/pertype_count
+        print("index ", temp_index, " max score ", final_score, " mean_score ", m)
+        scores[i] =[i, m]
 
     print("scores",scores)
     i = 0
@@ -504,7 +515,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/temporary_best.png"
     shutil.copy(image_name, move_to_name)
-    image_name = output_dir + " /original/flow/" + str(best_illusion).zfill(10) + ".png"
+    image_name = output_dir + "/original/flow/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/temporary_best_flow.png"
     shutil.copy(image_name, move_to_name)
 
