@@ -140,6 +140,57 @@ def direction_ratio(vectors, limits = None):
     return mean_ratio
 
 
+# calculate how parallel nearby patches are and how different they are from
+# slightly further away patches
+def divergence_convergence_score(vectors, width, height):
+
+    score = 0
+    step = 10 #px
+    # build an array of vectors 
+    w = width/step
+    h = height/step
+    flow_array = np.zeros(w, h, 2)
+
+    # TODO: take the mean for vectors in the same cell
+    # vectors orientation 
+    for index in length(vectors):
+        v = vectors[index]
+        i = v[2]/step
+        j = v[3]/step
+        norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
+        x = v[2]/norm_v
+        y = v[3]/norm_v
+        flow_array[i,j,0] = x
+        flow_array[i,j,1] = y
+
+    # calculate points
+    for i in range(0,w):
+        for j in range(0,w):
+            xmin = max(i - 1, 0)
+            xmax = min(i+1, w)
+            ymin = max(j - 1, 0)
+            ymax = min(j+1, h)
+            loss = 0
+            sum_vec = 0
+            vx = flow_array[i,j,0]
+            vy = flow_array[i,j,1]
+
+            for x in range(xmin, xmax):
+                for j in range(ymin, ymax):
+                    if flow_array[x] == 0 && flow_array[y] == 0:
+                        continue
+
+                    dot = abs(vx*flow_array[x] + vy*flow_array[y])
+                    # aim for either completely different or completely same
+                    loss += (dot-0.5)*(dot-0.5)
+                    sum_vec += 1
+
+            if(sum_vec>0):
+                loss = loss/sum_vec
+                score += loss
+
+    return score
+
 
 # returns a high score if vectors are aligned on concentric circles
 # [ratio of tangent, ratio of alignment]
@@ -396,38 +447,40 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
             if(len(original_vectors[index])>0):
                 # bonus
                 score = score + 0.1
-                ratio = plausibility_ratio(original_vectors[index])
+                ratio = plausibility_ratio(original_vectors[index]) #TODO might not be needed?
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
                     score = score + 0.1
-                    step = h/2
-                    y = 0                
-                    count = 0
-                    score_2 = [None]*2
-                    while y<h:
-                        limit = [y, y+step]
-                        score_2[count] = direction_ratio(good_vectors, limit)
-                        y = y + step
-                        count = count + 1
+                #     step = h/2
+                #     y = 0                
+                #     count = 0
+                #     score_2 = [None]*2
+                #     while y<h:
+                #         limit = [y, y+step]
+                #         score_2[count] =  direction_ratio(good_vectors, limit)
+                #         y = y + step
+                #         count = count + 1
 
-                    # bonus points
-                    if(score_2[0]*score_2[1]<0):
-                        # is the ideal number of vectors
-                        temp = 24 - len(good_vectors)
-                        if(temp==0):
-                            n_dist = 1
-                        else:
-                            n_dist = 1/temp*temp
-                        score = score + n_dist*(abs(score_2[0]) + abs(score_2[1]))/2
-                        mean_score = mean_score + score
-                if score>final_score:
-                    final_score = score
-                    temp_index = index
+                #     # bonus points
+                #     if(score_2[0]*score_2[1]<0):
+                #         # is the ideal number of vectors
+                #         temp = 24 - len(good_vectors)
+                #         if(temp==0):
+                #             n_dist = 1
+                #         else:
+                #             n_dist = 1/temp*temp
+                #         score = score + n_dist*(abs(score_2[0]) + abs(score_2[1]))/2
+                #         mean_score = mean_score + score
+                # if score>final_score:
+                #     final_score = score
+                #     temp_index = index
+                    final_score = score + divergence_convergence_score(good_vectors) #
         
         print("index ", temp_index, " score ", final_score)
-        scores[i] =[i, mean_score/pertype_count]
+        # scores[i] =[i, mean_score/pertype_count]
+        scores[i] =[i, final_score]
 
     print("scores",scores)
     i = 0
