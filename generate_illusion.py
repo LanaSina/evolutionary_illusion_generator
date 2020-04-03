@@ -144,6 +144,8 @@ def direction_ratio(vectors, limits = None):
 # slightly further away patches
 def divergence_convergence_score(vectors, width, height):
 
+    step = height*4/len(vectors)
+
     score = 0
     step = 10 #px
     # build an array of vectors 
@@ -175,18 +177,29 @@ def divergence_convergence_score(vectors, width, height):
             vx = flow_array[i,j,0]
             vy = flow_array[i,j,1]
 
+            plus = 0
+            minus = 0
+
             for x in range(xmin, xmax):
                 for y in range(ymin, ymax):
                     if flow_array[x,y,0] == 0 and flow_array[x,y,1] == 0:
                         continue
-
-                    dot = abs(vx*flow_array[x,y,0] + vy*flow_array[x,y,1])
-                    # aim for either completely different or completely same
-                    loss += (dot-0.5)*(dot-0.5)
                     sum_vec += 1
 
+                    dot = vx*flow_array[x,y,0] + vy*flow_array[x,y,1]
+                    if (dot>0):
+                        plus += dot
+                    else:
+                        minus -= dot
+                    # aim for either completely different or completely same
+                    # loss += (dot-0.5)*(dot-0.5)
+                    # sum_vec += 1
+
             if(sum_vec>0):
-                loss = loss/sum_vec
+                # there must be + and - in equal parts
+                loss = 1 - (plus - minus)/ (plus + minus)
+                # high norms are better
+                loss = loss * (plus+minus)/sum_vec
                 score += loss
 
     return score
@@ -381,7 +394,7 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
 # population:  [id, net]
 def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir = "."):
     print("Calculating fitnesses of populations: ", len(population))
-    output_dir = "temp" + str(id) + "/"
+    output_dir = "temp/" #+ str(id) + "/"
     repeat = 10
     w = 160
     h = 120
@@ -390,7 +403,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     channels = [3,48,96,192]
     gpu = 0
 
-    prediction_dir = output_dir + "/images/prediction/"
+    prediction_dir = output_dir + "/prediction/"
     if not os.path.exists(prediction_dir):
         os.makedirs(prediction_dir)
 
@@ -430,7 +443,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     original_vectors = [None] * total_count
     for input_image in images_list:
         prediction_image_path = prediction_dir + str(i).zfill(10) + ".png"
-        results = lucas_kanade(input_image, prediction_image_path, output_dir+"/images/flow/", save=True, verbose = 0)
+        results = lucas_kanade(input_image, prediction_image_path, output_dir+"/flow/", save=True, verbose = 0)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
         else:
@@ -456,7 +469,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
-                    score = score + 0.1*len(good_vectors)
+                    score = score + 0.5*len(good_vectors)
                 #     step = h/2
                 #     y = 0                
                 #     count = 0
@@ -513,10 +526,10 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
 
     # save best illusion
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
-    move_to_name = best_dir + "/temporary_best.png"
+    move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
-    image_name = output_dir + "/original/flow/" + str(best_illusion).zfill(10) + ".png"
-    move_to_name = best_dir + "/temporary_best_flow.png"
+    image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
+    move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
    
@@ -531,7 +544,7 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     size = [w,h]
     channels = [3,48,96,192]
     gpu = 0
-    c_dim = 3
+    c_dim = 1
 
     best_dir = output_dir# + "_best/"
     if not os.path.exists(best_dir):
