@@ -147,16 +147,16 @@ def divergence_convergence_score(vectors, width, height):
     score = 0
     step = 10 #px
     # build an array of vectors 
-    w = width/step
-    h = height/step
-    flow_array = np.zeros(w, h, 2)
+    w = int(width/step)
+    h = int(height/step)
+    flow_array = np.zeros((w, h, 2))
 
     # TODO: take the mean for vectors in the same cell
     # vectors orientation 
-    for index in length(vectors):
+    for index in range(0,len(vectors)):
         v = vectors[index]
-        i = v[2]/step
-        j = v[3]/step
+        i = int(v[2]/step)
+        j = int(v[3]/step)
         norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
         x = v[2]/norm_v
         y = v[3]/norm_v
@@ -165,7 +165,7 @@ def divergence_convergence_score(vectors, width, height):
 
     # calculate points
     for i in range(0,w):
-        for j in range(0,w):
+        for j in range(0,h):
             xmin = max(i - 1, 0)
             xmax = min(i+1, w)
             ymin = max(j - 1, 0)
@@ -176,11 +176,11 @@ def divergence_convergence_score(vectors, width, height):
             vy = flow_array[i,j,1]
 
             for x in range(xmin, xmax):
-                for j in range(ymin, ymax):
-                    if flow_array[x] == 0 && flow_array[y] == 0:
+                for y in range(ymin, ymax):
+                    if flow_array[x,y,0] == 0 and flow_array[x,y,1] == 0:
                         continue
 
-                    dot = abs(vx*flow_array[x] + vy*flow_array[y])
+                    dot = abs(vx*flow_array[x,y,0] + vy*flow_array[x,y,1])
                     # aim for either completely different or completely same
                     loss += (dot-0.5)*(dot-0.5)
                     sum_vec += 1
@@ -313,13 +313,13 @@ def get_fidelity(input_image_path, prediction_image_path):
     return 1-err
 
 def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
-    half_h = int(h/2)
+    #half_h = int(h/2)
     scaling = 4
     leaf_names = ["x","y","s"]
     out_names = ["r0","g0","b0","r1","g1","b1"]
-    x_rep = 5
-    x_subwidth = int(160/x_rep)
-    x_dat, y_dat, r_dat, s_dat = create_grid(x_subwidth, half_h, scaling)
+    #x_rep = 5
+    #x_subwidth = int(160/x_rep)
+    x_dat, y_dat, r_dat, s_dat = create_grid(w, h, scaling)#create_grid(x_subwidth, half_h, scaling)
     s_dat = s_val*s_dat
 
     inp_x = torch.tensor(x_dat.flatten())
@@ -476,7 +476,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 # if score>final_score:
                 #     final_score = score
                 #     temp_index = index
-                    final_score = score + divergence_convergence_score(good_vectors) #
+                    final_score = score + divergence_convergence_score(good_vectors, w, h) #
         
         print("index ", temp_index, " score ", final_score)
         # scores[i] =[i, mean_score/pertype_count]
@@ -496,6 +496,11 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/temporary_best.png"
     shutil.copy(image_name, move_to_name)
+    image_name = output_dir + " /original/flow/" + str(best_illusion).zfill(10) + ".png"
+    move_to_name = best_dir + "/temporary_best_flow.png"
+    shutil.copy(image_name, move_to_name)
+
+   
 
 
 def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
