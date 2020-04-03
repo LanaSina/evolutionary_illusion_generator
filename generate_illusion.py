@@ -442,6 +442,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
         final_score = -100
         temp_index = -1
         mean_score = 0
+        # traverse latent space
         for j in range(0,int(2/s_step)):
             index = i*pertype_count+j
             score = 0
@@ -480,9 +481,10 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
 
                     score = score + divergence_convergence_score(good_vectors, w, h)
                     mean_score = mean_score + score
-                    if score>final_score:
-                        final_score = score
-                        temp_index = index
+
+                if score>final_score:
+                    final_score = score
+                    temp_index = index
         
         print("index ", temp_index, " score ", final_score)
         # scores[i] =[i, mean_score/pertype_count]
