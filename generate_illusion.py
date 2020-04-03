@@ -395,6 +395,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
 
+    # this must be latent space?
     s_step = 0.2
     pertype_count = int((2/s_step))
     total_count = len(population)*pertype_count
@@ -476,7 +477,12 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 # if score>final_score:
                 #     final_score = score
                 #     temp_index = index
-                    final_score = score + divergence_convergence_score(good_vectors, w, h) #
+
+                    score = score + divergence_convergence_score(good_vectors, w, h)
+                    mean_score = mean_score + score
+                    if score>final_score:
+                        final_score = score
+                        temp_index = index
         
         print("index ", temp_index, " score ", final_score)
         # scores[i] =[i, mean_score/pertype_count]
