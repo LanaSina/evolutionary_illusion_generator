@@ -157,8 +157,8 @@ def divergence_convergence_score(vectors, width, height):
     # vectors orientation 
     for index in range(0,len(vectors)):
         v = vectors[index]
-        i = int(v[2]/step)
-        j = int(v[3]/step)
+        i = int(v[0]/step)
+        j = int(v[1]/step)
         norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
         x = v[2]/norm_v
         y = v[3]/norm_v
@@ -176,6 +176,8 @@ def divergence_convergence_score(vectors, width, height):
             sum_vec = 0
             vx = flow_array[i,j,0]
             vy = flow_array[i,j,1]
+            if vx == 0 and vy == 0:
+                        continue
 
             plus = 0
             minus = 0
@@ -184,23 +186,28 @@ def divergence_convergence_score(vectors, width, height):
                 for y in range(ymin, ymax):
                     if flow_array[x,y,0] == 0 and flow_array[x,y,1] == 0:
                         continue
+
                     sum_vec += 1
 
                     dot = vx*flow_array[x,y,0] + vy*flow_array[x,y,1]
+                    # aim for either completely different or completely same
+                    loss = (abs(dot)-0.5)*(abs(dot)-0.5)
                     if (dot>0):
                         plus += dot
                     else:
                         minus -= dot
-                    # aim for either completely different or completely same
+                    
                     # loss += (dot-0.5)*(dot-0.5)
                     # sum_vec += 1
 
             if(sum_vec>0):
                 # there must be + and - in equal parts
+                # print("plus, minus", plus, minus)
                 loss = 1 - (plus - minus)/ (plus + minus)
                 # high norms are better
                 loss = loss * (plus+minus)/sum_vec
                 score += loss
+                # print("loss", loss, "score", score)
 
     return score
 
@@ -327,7 +334,7 @@ def get_fidelity(input_image_path, prediction_image_path):
 
 def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
     #half_h = int(h/2)
-    scaling = 4
+    scaling = 10
     leaf_names = ["x","y","s"]
     out_names = ["r0","g0","b0","r1","g1","b1"]
     #x_rep = 5
@@ -411,7 +418,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
         os.makedirs(output_dir + "images/")
 
     # this must be latent space?
-    s_step = 0.2
+    s_step = 2 #0.2
     pertype_count = int((2/s_step))
     total_count = len(population)*pertype_count
     images_list = [None]*total_count
@@ -459,6 +466,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
         mean_score = 0
         # traverse latent space
         for j in range(0,int(2/s_step)):
+            print("j", j)
             index = i*pertype_count+j
             score = 0
             if(len(original_vectors[index])>0):
@@ -469,7 +477,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
-                    score = score + 0.5*len(good_vectors)
+                    score = score + 0.5*min(len(good_vectors),5)
                 #     step = h/2
                 #     y = 0                
                 #     count = 0
@@ -495,22 +503,22 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 #     temp_index = index
 
                     score_d = divergence_convergence_score(good_vectors, w, h)
+                    print("score_d", score_d)
                     # bonus points
-                    if(score_d>0):
+                    #if(score_d>0):
                         # is the ideal number of vectors
                         # temp = 24 - len(good_vectors)
                         # if(temp==0):
                         #     n_dist = 1
                         # else:
                         #     n_dist = 1/temp*temp
-                        score = score + score_d
-                        mean_score = mean_score + score
+                    score = score + score_d
 
                 if score>final_score:
                     final_score = score
                     temp_index = index
         
-        m =  mean_score/pertype_count
+        m =  score/pertype_count
         print("index ", temp_index, " max score ", final_score, " mean_score ", m)
         scores[i] =[i, m]
 
@@ -522,12 +530,14 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
         genome.fitness = scores[i][1]
         if (scores[i][1]> best_score):
             best_illusion = i
+            best_score = scores[i][1]
         i = i+1
 
     # save best illusion
-    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+    image_name = images_list[best_illusion] #output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
+    print("best", image_name, best_illusion)
     image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
