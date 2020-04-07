@@ -143,10 +143,10 @@ def direction_ratio(vectors, limits = None):
 # agreement inside the cell, + disagreement outside of it
 def inside_outside_score(vectors, width, height):
 
-    step = width/6 #px
+    step = width/5 #px
     # build an array of vectors 
-    w = int(width/step)
-    h = int(height/step)
+    w = int(width/step) + 1
+    h = int(height/step) + 1
     flow_array = np.zeros((w, h, 2))
     count_array = np.ones((w, h))
     agreement_array = np.zeros((w, h, 2))
@@ -168,18 +168,18 @@ def inside_outside_score(vectors, width, height):
     # not a real mean as the count started at 1
     flow_array[:,:,0] = flow_array[:,:,0]/count_array
     flow_array[:,:,1] = flow_array[:,:,1]/count_array
-    norm_sum_array[i,j] = norm_sum_array[i,j]/count_array
+    norm_sum_array = norm_sum_array/count_array
 
     # now take the variance
     for index in range(0,len(vectors)):
         v = vectors[index]
         i = int(v[0]/step)
         j = int(v[1]/step)
-        agreement_array[i,j,0] += np.sqrt(flow_array[:,:,0] - v[2])
-        agreement_array[i,j,1] += np.sqrt(flow_array[:,:,1] - v[3])
+        agreement_array[i,j,0] += (flow_array[i,j,0] - v[2])*(flow_array[i,j,0] - v[2])
+        agreement_array[i,j,1] += (flow_array[i,j,1] - v[3])*(flow_array[i,j,1] - v[3])
 
-    agreement_array[i,j,0] =  agreement_array[i,j,0]/count_array
-    agreement_array[i,j,0] =  agreement_array[i,j,0]/count_array
+    agreement_array[:,:,0] =  agreement_array[:,:,0]/count_array
+    agreement_array[:,:,1] =  agreement_array[:,:,1]/count_array
 
     # take the sums
     score_agreement =  - (min(np.mean(agreement_array), 10))
@@ -191,15 +191,18 @@ def inside_outside_score(vectors, width, height):
         for j in range(0,h):
             vx = flow_array[i,j,0]
             vy = flow_array[i,j,1]
+            if (vx!=0 or vy!=0):
             # normalize
-            norm_v = np.sqrt(vx*vx + vy*vy)
-            vx = vx/norm_v
-            vy = vy/norm_v
+                norm_v = np.sqrt(vx*vx + vy*vy)
+                vx = vx/norm_v
+                vy = vy/norm_v
 
             min_i = max(0,i-1)
             max_i = min(w,i+1)
             min_j = max(0,j-1)
-            max_j = max(h,i+1)
+            max_j = min(h,i+1)
+            plus = 0
+            minus = 0
             for x in range(min_i,max_i):
                 for y in range(min_j,max_j):
                     if i == x and j == y:
@@ -207,15 +210,19 @@ def inside_outside_score(vectors, width, height):
 
                     wx = flow_array[x,y,0]
                     wy = flow_array[x,y,1]
-                    norm_w = np.sqrt(wx*wx + wy*wy)
-                    wx = wx/norm_w
-                    wy = wy/norm_w
-                    # +1 for disagreement
-                    dot = vx*wx + vy*wy
-                    # smaller or negative is better
-                    sum_d += 1-dot
+                    if (wx!=0 or wy!=0):
+                        norm_w = np.sqrt(wx*wx + wy*wy)
+                        wx = wx/norm_w
+                        wy = wy/norm_w
+                        # +1 for disagreement
+                        dot = vx*wx + vy*wy
+                        if dot >0:
+                            plus += 1
+                        else:
+                            minus +=1
+            sum_d += (min(2, plus) + min(2,minus))/4
 
-    sum_d = sum_d/(2*w*h)
+    sum_d = sum_d/(w*h)
     sum_d = sum_d*10
 
     final_score = score_agreement + score_size + sum_d
@@ -551,7 +558,6 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
         mean_score = 0
         # traverse latent space
         for j in range(0,int(2/s_step)):
-            print("j", j)
             index = i*pertype_count+j
             score = 0
             if(len(original_vectors[index])>0):
@@ -589,15 +595,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
 
                     score_d = inside_outside_score(good_vectors, w, h)
                     # divergence_convergence_score(good_vectors, w, h)
-                    print("score_d", score_d)
-                    # bonus points
-                    #if(score_d>0):
-                        # is the ideal number of vectors
-                        # temp = 24 - len(good_vectors)
-                        # if(temp==0):
-                        #     n_dist = 1
-                        # else:
-                        #     n_dist = 1/temp*temp
+
                     score = score + score_d
 
                 if score>final_score:
@@ -605,7 +603,6 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                     temp_index = index
         
         m =  score/pertype_count
-        print("index ", temp_index, " max score ", final_score, " mean_score ", m)
         scores[i] =[i, m]
 
     print("scores",scores)
