@@ -392,6 +392,7 @@ def create_grid(x_res = 32, y_res = 32, scaling = 1.0):
     y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
     r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
 
+    # what is this
     s_mat = np.ones((num_points))
 
     x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
@@ -441,6 +442,7 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
     #reverse
     x0 = x_dat[:,::-1,:].flatten()
     inv_x = torch.tensor(x0.flatten())
+    inp_r = torch.tensor(r_dat.flatten())
 
     if(c_dim>1):
             image_array = np.zeros(((h,w,3)))
@@ -455,16 +457,16 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
                 if(c>=3):
                     break
 
-                pixels = node_func(x=inp_x, y=inp_y, s = inp_s)
+                pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
                 pixels_np = pixels.numpy()
-                pixels = node_func(x=inv_x, y=inp_y, s = inp_s)
-                reverse_pixels_np = pixels.numpy()
+                # pixels = node_func(x=inv_x, y=inp_y, s = inp_s)
+                # reverse_pixels_np = pixels.numpy()
                 # for x_slice in range(0,x_rep):
                 #     start = x_slice*x_subwidth
                 #     image_array[0:half_h, start:(start+x_subwidth), c] = np.reshape(pixels_np, (half_h,x_subwidth))
                 #     image_array[half_h:h, start:(start+x_subwidth), c] = np.reshape(reverse_pixels_np, (half_h,x_subwidth))
 
-                image_array[0:h, 0:w, c] = np.reshape(reverse_pixels_np, (h,w))
+                image_array[0:h, 0:w, c] = np.reshape(pixels_np, (h,w))
 
                 c = c + 1
             img_data = np.array(image_array*255.0, dtype=np.uint8)
@@ -478,7 +480,7 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
             out_names
         )
         node_func = net_nodes[0]
-        pixels = node_func(x=inp_x, y=inp_y, s = inp_s)
+        pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
         pixels_np = pixels.numpy()
         image_array = np.zeros(((w,h,3)))
         pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
