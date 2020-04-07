@@ -140,6 +140,90 @@ def direction_ratio(vectors, limits = None):
     return mean_ratio
 
 
+# agreement inside the cell, + disagreement outside of it
+def inside_outside_score(vectors, width, height):
+
+    step = width/6 #px
+    # build an array of vectors 
+    w = int(width/step)
+    h = int(height/step)
+    flow_array = np.zeros((w, h, 2))
+    count_array = np.ones((w, h))
+    agreement_array = np.zeros((w, h, 2))
+    norm_sum_array = np.zeros((w, h))
+
+    # take the mean for vectors in the same cell, and calculate agreement score
+    # vectors orientation 
+    for index in range(0,len(vectors)):
+        v = vectors[index]
+        i = int(v[0]/step)
+        j = int(v[1]/step)
+
+        flow_array[i,j,0] += v[2]
+        flow_array[i,j,1] += v[3]
+        count_array[i,j] += 1 
+        norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
+        norm_sum_array[i,j] += norm_v
+
+    # not a real mean as the count started at 1
+    flow_array[:,:,0] = flow_array[:,:,0]/count_array
+    flow_array[:,:,1] = flow_array[:,:,1]/count_array
+    norm_sum_array[i,j] = norm_sum_array[i,j]/count_array
+
+    # now take the variance
+    for index in range(0,len(vectors)):
+        v = vectors[index]
+        i = int(v[0]/step)
+        j = int(v[1]/step)
+        agreement_array[i,j,0] += np.sqrt(flow_array[:,:,0] - v[2])
+        agreement_array[i,j,1] += np.sqrt(flow_array[:,:,1] - v[3])
+
+    agreement_array[i,j,0] =  agreement_array[i,j,0]/count_array
+    agreement_array[i,j,0] =  agreement_array[i,j,0]/count_array
+
+    # take the sums
+    score_agreement =  - (min(np.mean(agreement_array), 10))
+    score_size = min(10, np.mean(norm_sum_array))
+
+    # compare with other cells
+    sum_d = 0
+    for i in range(0,w):
+        for j in range(0,h):
+            vx = flow_array[i,j,0]
+            vy = flow_array[i,j,1]
+            # normalize
+            norm_v = np.sqrt(vx*vx + vy*vy)
+            vx = vx/norm_v
+            vy = vy/norm_v
+
+            min_i = max(0,i-1)
+            max_i = min(w,i+1)
+            min_j = max(0,j-1)
+            max_j = max(h,i+1)
+            for x in range(min_i,max_i):
+                for y in range(min_j,max_j):
+                    if i == x and j == y:
+                        continue
+
+                    wx = flow_array[x,y,0]
+                    wy = flow_array[x,y,1]
+                    norm_w = np.sqrt(wx*wx + wy*wy)
+                    wx = wx/norm_w
+                    wy = wy/norm_w
+                    # +1 for disagreement
+                    dot = vx*wx + vy*wy
+                    # smaller or negative is better
+                    sum_d += 1-dot
+
+    sum_d = sum_d/(2*w*h)
+    sum_d = sum_d*10
+
+    final_score = score_agreement + score_size + sum_d
+    final_score = final_score/30
+    return final_score
+
+
+
 # calculate how parallel nearby patches are and how different they are from
 # slightly further away patches
 def divergence_convergence_score(vectors, width, height):
@@ -182,6 +266,7 @@ def divergence_convergence_score(vectors, width, height):
             plus = 0
             minus = 0
 
+            sum_norm = 0
             for x in range(xmin, xmax):
                 for y in range(ymin, ymax):
                     if flow_array[x,y,0] == 0 and flow_array[x,y,1] == 0:
@@ -205,7 +290,7 @@ def divergence_convergence_score(vectors, width, height):
                 # print("plus, minus", plus, minus)
                 loss = 1 - (plus - minus)/ (plus + minus)
                 # high norms are better
-                loss = loss * (plus+minus)/sum_vec
+                loss = loss * abs(vx+vy)
                 score += loss
                 # print("loss", loss, "score", score)
 
@@ -471,13 +556,13 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
             score = 0
             if(len(original_vectors[index])>0):
                 # bonus
-                score = score + 0.1
+                # score = score + 0.1
                 ratio = plausibility_ratio(original_vectors[index]) #TODO might not be needed?
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
-                    score = score + 0.5*min(len(good_vectors),5)
+                    # score = score + 0.5*min(len(good_vectors),5)
                 #     step = h/2
                 #     y = 0                
                 #     count = 0
@@ -502,7 +587,8 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 #     final_score = score
                 #     temp_index = index
 
-                    score_d = divergence_convergence_score(good_vectors, w, h)
+                    score_d = inside_outside_score(good_vectors, w, h)
+                    # divergence_convergence_score(good_vectors, w, h)
                     print("score_d", score_d)
                     # bonus points
                     #if(score_d>0):
@@ -554,7 +640,7 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     size = [w,h]
     channels = [3,48,96,192]
     gpu = 0
-    c_dim = 1
+    c_dim = 3
 
     best_dir = output_dir# + "_best/"
     if not os.path.exists(best_dir):
