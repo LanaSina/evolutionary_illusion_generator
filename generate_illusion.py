@@ -428,7 +428,7 @@ def get_fidelity(input_image_path, prediction_image_path):
 def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
     #half_h = int(h/2)
     scaling = 10
-    leaf_names = ["x","y","s"]
+    leaf_names = ["x","y","s","r"]
     out_names = ["r0","g0","b0","r1","g1","b1"]
     #x_rep = 5
     #x_subwidth = int(160/x_rep)
