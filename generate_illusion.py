@@ -18,6 +18,11 @@ import shutil
 import shutil
 import torch
 
+# TODO enumerate illusion types
+class StructureType(IntEnum):
+    Bands = 0
+    Circles = 1
+    Free = 2
 
 # high score if vectors pass the mirror test
 def illusion_score(vectors, flipped=False, mirrored=False):
@@ -382,25 +387,39 @@ def random_modify(image_path):
     return image
 
 
-def create_grid(x_res = 32, y_res = 32, scaling = 1.0):
+def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
+    r_mat = None 
+    x_mat = None
+    y_mat = None
     num_points = x_res*y_res
-    # repeat x a few times
-    x_range = np.linspace(-1*scaling, scaling, num = x_res)
-    y_range = np.linspace(-1*scaling, scaling, num = y_res)
-    x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-    y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-    r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
+   
+    if structure == StructureType.Bands:
+        y_rep = 5
+        y_len = int(120/y_rep)
+        sc = scaling/rep
+        a = np.linspace(-1*sc, sc, num = y_len)
+        y_range = np.tile(a, rep)
+        x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
+        x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
+        y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
+        x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
+        y_mat = np.tile(y_mat.flatten(), 1).reshape(1, num_points, 1)
+
+        return {"x_mat": x_mat, "y_mat": y_mat} #, s_mat
+
+    else if structure == StructureType.Circles:
+        # y_range = np.linspace(-1*scaling, scaling, num = y_res)
+        r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
+        r_mat = np.tile(r_mat.flatten(), 1).reshape(1, num_points, 1)
+
+   
     # what is this
-    s_mat = np.ones((num_points))
+    # s_mat = np.ones((num_points))
+    # s_mat = np.tile(s_mat.flatten(), 1).reshape(1, num_points, 1)
 
-    x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
-    y_mat = np.tile(y_mat.flatten(), 1).reshape(1, num_points, 1)
-    r_mat = np.tile(r_mat.flatten(), 1).reshape(1, num_points, 1)
-    s_mat = np.tile(s_mat.flatten(), 1).reshape(1, num_points, 1)
-
-    return x_mat, y_mat, r_mat, s_mat
+    return {"input_0": x_mat, "input_1": y_mat, "input_2": r_mat} #, s_mat
 
 def fully_connected(input, out_dim, with_bias = True, mat = None):
     if mat is None:
@@ -425,24 +444,34 @@ def get_fidelity(input_image_path, prediction_image_path):
     # the two images are
     return 1-err
 
-def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
-    #half_h = int(h/2)
-    scaling = 10
-    leaf_names = ["x","y","s","r"]
-    out_names = ["r0","g0","b0","r1","g1","b1"]
-    #x_rep = 5
-    #x_subwidth = int(160/x_rep)
-    x_dat, y_dat, r_dat, s_dat = create_grid(w, h, scaling)#create_grid(x_subwidth, half_h, scaling)
-    s_dat = s_val*s_dat
+def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
 
-    inp_x = torch.tensor(x_dat.flatten())
-    inp_y = torch.tensor(y_dat.flatten())
-    inp_s = torch.tensor(s_dat.flatten())
-    inp_minus_s = torch.tensor(-s_dat.flatten())
-    #reverse
-    x0 = x_dat[:,::-1,:].flatten()
-    inv_x = torch.tensor(x0.flatten())
-    inp_r = torch.tensor(r_dat.flatten())
+    scaling = 10
+   
+    # why twice???
+    out_names = ["r0","g0","b0","r1","g1","b1"]
+
+    inputs = create_grid(w, h, scaling)
+    # x_dat, y_dat, r_dat  = create_grid(w, h, scaling)
+    # s_dat = s_val*s_dat
+
+    if structure == StructureType.Bands:
+        leaf_names = ["x","y","r"]
+        x_dat = inputs["x_dat"]
+        y_dat = inputs["y_dat"]
+        inp_x = torch.tensor(x_dat.flatten())
+        inp_y = torch.tensor(y_dat.flatten())
+        #reverse x
+        x0 = x_dat[:,::-1,:].flatten()
+        inv_x = torch.tensor(x0.flatten())
+
+    else :
+        leaf_names = ["x","y","s","r"]
+    
+    # inp_s = torch.tensor(s_dat.flatten())
+    # inp_minus_s = torch.tensor(-s_dat.flatten())
+    #reverse x
+    #inp_r = torch.tensor(r_dat.flatten())
 
     if(c_dim>1):
             image_array = np.zeros(((h,w,3)))
@@ -457,7 +486,11 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
                 if(c>=3):
                     break
 
-                pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
+                if structure == StructureType.Bands:
+                    pixels = node_func(x=inp_x, y=inp_y)
+                else: 
+                    pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
+                
                 pixels_np = pixels.numpy()
                 # pixels = node_func(x=inv_x, y=inp_y, s = inp_s)
                 # reverse_pixels_np = pixels.numpy()
@@ -493,9 +526,9 @@ def get_image_from_cppn(genome, c_dim, w, h, config, s_val = 1):
     return image
 
 # population:  [id, net]
-def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir = "."):
+def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3, best_dir = "."):
     print("Calculating fitnesses of populations: ", len(population))
-    output_dir = "temp/" #+ str(id) + "/"
+    output_dir = "temp/" 
     repeat = 10
     w = 160
     h = 120
@@ -511,8 +544,8 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
 
-    # this must be latent space?
-    s_step = 2 #0.2
+    # latent space coarse graining (none)
+    s_step = 2
     pertype_count = int((2/s_step))
     total_count = len(population)*pertype_count
     images_list = [None]*total_count
@@ -524,7 +557,7 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
         for s in range(0,pertype_count):
             s_val = -1 + s*s_step
             index = i*pertype_count+j
-            image = get_image_from_cppn(genome, c_dim, w, h, config, s_val = s_val)
+            image = get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = s_val)
 
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
             images_list[index] = image_name
@@ -595,7 +628,29 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
                 #     final_score = score
                 #     temp_index = index
 
-                    score_d = inside_outside_score(good_vectors, w, h)
+                    if structure == StructureType.Bands:
+                        y = 0                
+                        count = 0
+                        stripes = 5
+                        step = h/stripes
+                        score_direction = 0
+                        while y<h:
+                            limits = [y, y+step]
+                            temp =  direction_ratio(good_vectors, limits)
+                            factor = 1
+                            if count %% 2 == 1:
+                                factor = -1
+                            score_direction = score_direction + factor*temp
+                            y = y + step
+                            count = count + 1
+                        
+                        score_direction = score_direction / stripes
+                        # bonus for strength
+                        score_strength = strength_number(vectors)
+                        score_d= score_direction*score_strength
+
+                    else:
+                        score_d = inside_outside_score(good_vectors, w, h)
                     # divergence_convergence_score(good_vectors, w, h)
 
                     score = score + score_d
@@ -627,10 +682,8 @@ def get_fitnesses_neat(population, model_name, config, id=0, c_dim=3, best_dir =
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
-   
 
-
-def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
+def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = None):
     repeat = 6
     limit = 1
     w = 160
@@ -641,7 +694,7 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     gpu = 0
     c_dim = 3
 
-    best_dir = output_dir# + "_best/"
+    best_dir = output_dir
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
@@ -651,7 +704,7 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
                          config_path)
 
     def eval_genomes(genomes, config):
-        get_fitnesses_neat(genomes, model_name, config, c_dim=c_dim, best_dir=best_dir)
+        get_fitnesses_neat(structure, genomes, model_name, config, c_dim=c_dim, best_dir=best_dir)
 
     checkpointer = neat.Checkpointer(100)
 
@@ -670,25 +723,29 @@ def neat_illusion(output_dir, model_name, config_path, checkpoint = None):
     # Run for up to x generations.
     winner = p.run(eval_genomes, 300)
 
-    # Display the winning genome.
-    # print('\nBest genome:\n{!s}'.format(winner))
-
-    # Show output of the most fit genome against training data.
-    # image = get_image_from_cppn(winner, c_dim, w, h, config)
-
-    # image.save("best_illusion.png")
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='optical flow tests')
     parser.add_argument('--model', '-m', default='', help='.model file')
     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
-    parser.add_argument('--config', '-cfg', default="./neat.cfg", help='path to the config file')
+    parser.add_argument('--structure', '-s', default=0, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
+    parser.add_argument('--config', '-cfg', help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
+
 
     args = parser.parse_args()
     output_dir = args.output_dir 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    neat_illusion(output_dir, args.model, args.config, args.checkpoint)
+    config = args.config
+    if config == None:
+        if args.structure == StructureType.Bands:
+            config = "./neat_configs/bands.cfg"
+        else if args.structure == StructureType.Circles:
+            config = "./neat_configs/circles.cfg"
+        else :
+            config = "./neat_configs/default.cfg"
+        
+
+    neat_illusion(output_dir, args.model,config, args.structure, args.checkpoint)
 
