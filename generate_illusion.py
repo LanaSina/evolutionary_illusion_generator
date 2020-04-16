@@ -398,9 +398,9 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
     if structure == StructureType.Bands:
         y_rep = 5
         y_len = int(120/y_rep)
-        sc = scaling/rep
+        sc = scaling/y_rep
         a = np.linspace(-1*sc, sc, num = y_len)
-        y_range = np.tile(a, rep)
+        y_range = np.tile(a, y_rep)
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
@@ -452,14 +452,14 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
     # why twice???
     out_names = ["r0","g0","b0","r1","g1","b1"]
 
-    inputs = create_grid(w, h, scaling)
+    inputs = create_grid(structure, w, h, scaling)
     # x_dat, y_dat, r_dat  = create_grid(w, h, scaling)
     # s_dat = s_val*s_dat
 
     if structure == StructureType.Bands:
-        leaf_names = ["x","y","r"]
-        x_dat = inputs["x_dat"]
-        y_dat = inputs["y_dat"]
+        leaf_names = ["x","y"]
+        x_dat = inputs["x_mat"]
+        y_dat = inputs["y_mat"]
         inp_x = torch.tensor(x_dat.flatten())
         inp_y = torch.tensor(y_dat.flatten())
         #reverse x
@@ -728,8 +728,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='optical flow tests')
     parser.add_argument('--model', '-m', default='', help='.model file')
     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
-    parser.add_argument('--structure', '-s', default=0, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
-    parser.add_argument('--config', '-cfg', help='path to the NEAT config file')
+    parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
+    parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
 
 
@@ -739,14 +739,17 @@ if __name__ == "__main__":
         os.makedirs(output_dir)
 
     config = args.config
-    if config == None:
-        if args.structure == StructureType.Bands:
-            config = "./neat_configs/bands.cfg"
-        elif args.structure == StructureType.Circles:
-            config = "./neat_configs/circles.cfg"
-        else :
-            config = "./neat_configs/default.cfg"
-        
 
+    if config == "":
+        config = os.path.dirname(__file__)
+        print(config)
+        if args.structure == StructureType.Bands:
+            config += "/neat_configs/bands.txt"
+        elif args.structure == StructureType.Circles:
+            config += "/neat_configs/circles.txt"
+        else :
+            config += "/neat_configs/default.txt"
+        
+    print("config", config)
     neat_illusion(output_dir, args.model,config, args.structure, args.checkpoint)
 
