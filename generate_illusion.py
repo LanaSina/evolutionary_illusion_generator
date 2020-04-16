@@ -404,7 +404,13 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
         x_reverse = np.ones((y_res, 1))
-        x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
+        start = 0
+        while start<y_res:
+            stop = min(y_res, start+y_len)
+            x_reverse[start:stop] =  -x_reverse[start:stop]
+            start = start+2*y_len
+
+        x_mat = np.matmul(x_reverse, x_range.reshape((1, x_res)))
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
         y_mat = np.tile(y_mat.flatten(), 1).reshape(1, num_points, 1)
@@ -463,10 +469,6 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
         y_dat = inputs["y_mat"]
         inp_x = torch.tensor(x_dat.flatten())
         inp_y = torch.tensor(y_dat.flatten())
-        # reverse x
-        x0 = x_dat[:,::-1,:].flatten()
-        inv_x = torch.tensor(x0.flatten())
-
     else :
         leaf_names = ["x","y","s","r"]
     
@@ -546,6 +548,12 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
 
+    # mirrored and flipped
+    if not os.path.exists(output_dir + "mirrored_images/"):
+        os.makedirs(output_dir + "mirrored_images/")
+        os.makedirs(output_dir + "mirrored_flow/")
+
+
     # latent space coarse graining (none)
     s_step = 2
     pertype_count = int((2/s_step))
@@ -585,6 +593,22 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         else:
             original_vectors[i] = [[0,0,-1000,0]]
         i = i + 1
+
+    # # mirror images
+    # print("Mirror images")
+    # mirror_multiple(output_dir + "images/" , output_dir + "mirrored_images/" , TransformationType.MirrorAndFlip)
+    # # mirrored flows
+    # i = 0
+    # mirrored_vectors = [None] * total_count
+    # for input_image in images_list:
+    #     prediction_image_path = prediction_dir + str(i).zfill(10) + ".png"
+    #     results = lucas_kanade(input_image, prediction_image_path, output_dir+"/flow/", save=True, verbose = 0)
+    #     if results["vectors"]:
+    #         original_vectors[i] = np.asarray(results["vectors"])
+    #     else:
+    #         original_vectors[i] = [[0,0,-1000,0]]
+    #     i = i + 1
+
 
     # calculate score
     #radius_limits = [20,50]
@@ -636,9 +660,16 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         stripes = 5
                         step = h/stripes
                         score_direction = 0
+                        discord = 0
                         while y<h:
                             limits = [y, y+step]
                             temp =  direction_ratio(good_vectors, limits)
+                            #check mirroring
+                            if(count==1):
+                                if not(score_direction>0 and temp<0):
+                                    score_direction = 0
+                                    break
+
                             factor = 1
                             if count % 2 == 1:
                                 factor = -1
