@@ -403,6 +403,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         y_range = np.tile(a, y_rep)
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
+        x_reverse = np.ones((y_res, 1))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
@@ -462,7 +463,7 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
         y_dat = inputs["y_mat"]
         inp_x = torch.tensor(x_dat.flatten())
         inp_y = torch.tensor(y_dat.flatten())
-        #reverse x
+        # reverse x
         x0 = x_dat[:,::-1,:].flatten()
         inv_x = torch.tensor(x0.flatten())
 
@@ -647,7 +648,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         
                         score_direction = score_direction / stripes
                         # bonus for strength
-                        score_strength = strength_number(vectors)
+                        score_strength = strength_number(good_vectors)
                         score_d= score_direction*score_strength
 
                     else:
