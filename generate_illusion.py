@@ -1,22 +1,23 @@
 import argparse
+from chainer_prednet.PredNet.call_prednet import test_prednet
+from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 import cv2
 import csv
+from enum import IntEnum
+import neat
 import numpy as np
 from optical_flow.optical_flow import lucas_kanade
 import os
 from PIL import Image
-from chainer_prednet.PredNet.call_prednet import test_prednet
-from random import random, randrange
-from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
-
 from pytorch_neat.pytorch_neat.cppn import create_cppn
 from pytorch_neat.pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
 from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
-import neat
+from random import random, randrange
 import shutil
 import shutil
 import torch
+
 
 # TODO enumerate illusion types
 class StructureType(IntEnum):
@@ -409,7 +410,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         return {"x_mat": x_mat, "y_mat": y_mat} #, s_mat
 
-    else if structure == StructureType.Circles:
+    elif structure == StructureType.Circles:
         # y_range = np.linspace(-1*scaling, scaling, num = y_res)
         r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
         r_mat = np.tile(r_mat.flatten(), 1).reshape(1, num_points, 1)
@@ -638,7 +639,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                             limits = [y, y+step]
                             temp =  direction_ratio(good_vectors, limits)
                             factor = 1
-                            if count %% 2 == 1:
+                            if count % 2 == 1:
                                 factor = -1
                             score_direction = score_direction + factor*temp
                             y = y + step
@@ -741,7 +742,7 @@ if __name__ == "__main__":
     if config == None:
         if args.structure == StructureType.Bands:
             config = "./neat_configs/bands.cfg"
-        else if args.structure == StructureType.Circles:
+        elif args.structure == StructureType.Circles:
             config = "./neat_configs/circles.cfg"
         else :
             config = "./neat_configs/default.cfg"
