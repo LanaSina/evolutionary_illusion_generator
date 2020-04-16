@@ -121,12 +121,15 @@ def combined_illusion_score(vectors, m_vectors):
 
     return [s0x + s0y, s1, s2]
 
-# returns 1 if vectors all aligned on x to the right; 
-# -1 if to the left
+# returns [a,b]
+# a = 1 if vectors rather aligned on x to the right;  -1 if to the left
+# b = mean of projection on x axis (normalised)
+
 def direction_ratio(vectors, limits = None):
     # print(vectors)
     mean_ratio = 0
     count = 0
+    orientation = 0
     # make sure that all vectors are on x axis
     for v in vectors:
         if not limits is None:
@@ -136,6 +139,7 @@ def direction_ratio(vectors, limits = None):
         norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
         ratio = v[2]/norm_v
         mean_ratio = mean_ratio + ratio
+        orientation = orientation + v[2]
         count = count + 1
 
     if count>0:
@@ -143,7 +147,12 @@ def direction_ratio(vectors, limits = None):
     else:
         mean_ratio = 0
 
-    return mean_ratio
+    if orientation>0:
+        orientation = 1
+    elif orientation<0:
+        orientation = -1
+
+    return [orientation, mean_ratio]
 
 
 # agreement inside the cell, + disagreement outside of it
@@ -310,6 +319,62 @@ def divergence_convergence_score(vectors, width, height):
     return score
 
 
+# limits: radius limits
+# returns high scores if vectors are aligned on concentric circles
+# [ratio of tangent, ratio of alignment]
+# [a,b]
+# a = 1 if vectors rather aligned clockwise;  -1 if counterclockwise
+# b = mean of projection on tangent (normalised)
+def tangent_ratio(vectors, limits = None):
+    w = 160
+    h = 120
+    c = [w/2.0, h/2.0]
+    # mean_ratio = 0
+    # global_sum= [0,0]
+    # abs_sum = [0,0]
+    # sum_norm = 0
+    #
+    direction = 0
+    mean_alignment = 0
+    # if beta = angle between radius and current vector
+    # ratio of projection of V on tangent / ||V|| = sin(beta)
+    # ratio = sin(arcos(R*V/||V||*||R||)) = sqrt(1- a^2)
+    count = 0
+    for v in vectors:
+        # radius vector R from image center to origin of V
+        r = [c[0], c[1], v[0]-c[0], v[1]-c[1]]
+        norm_r = np.sqrt(r[2]*r[2] + r[3]*r[3])
+        norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
+        if not limits is None:
+            if (norm_r<limits[0]) or (norm_r>limits[1]):
+                continue
+
+        # global_sum = [global_sum[0] + v[2], global_sum[1]+v[3]]
+        # abs_sum = [abs_sum[0] + abs(v[2]), abs_sum[1]+ abs(v[3])]
+        # sum_norm = sum_norm + norm_v
+        # projection of vectors on each other a = V*R / ||V||*||R||
+        a = r[2] * v[2] + r[3] * v[3]
+        a = a/(norm_r * norm_v)
+        mean_alignment = mean_alignment + a
+        # need the sign of the angle for orientation of vector
+        # if(a>0):
+        #     # ratio
+        #     ratio = np.sqrt(1 - a*a)
+        #     mean_ratio = mean_ratio + ratio
+        count = count + 1
+
+    if mean_alignment > 0:
+        direction = 1
+    elif mean_alignment <0:
+        direction = -1
+
+    if count > 0:
+        mean_alignment = mean_alignment/count
+
+    return [direction, mean_alignment]
+
+
+
 # returns a high score if vectors are aligned on concentric circles
 # [ratio of tangent, ratio of alignment]
 def circle_tangent_ratio(vectors, limits = None):
@@ -397,7 +462,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
    
     if structure == StructureType.Bands:
         y_rep = 5
-        y_len = int(120/y_rep)
+        y_len = int(120/y_rep) # * y_res???
         sc = scaling/y_rep
         a = np.linspace(-1*sc, sc, num = y_len)
         y_range = np.tile(a, y_rep)
@@ -418,9 +483,34 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         return {"x_mat": x_mat, "y_mat": y_mat} #, s_mat
 
     elif structure == StructureType.Circles:
+        r_rep = 5
+        r_len = int(x_res/(2*r_rep))
+
+        a = np.linspace(-1*scaling, scaling, num = r_len)
+        r_range = np.tile(a, r_rep)
+        theta_range = np.linspace(0, 360*scaling, num = y_res)
+
+        r_reverse = np.ones((y_res, 1))
+        start = 0
+        while start<r_rep*r_len :
+            stop = min(r_rep*r_len, start+r_len)
+            r_range[start:stop] =  -r_range[start:stop]
+            start = start+2*r_len
+
+        # now calculate x and y from this?
+        # x = r × cos( θ )
+        x_mat = np.matmul(r_reverse, np.cos(theta_range).reshape((1, x_res)))
+        # y = r × sin( θ )
+        y_mat = np.matmul(r_reverse, np.sin(theta_range).reshape((1, x_res)))
+        x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
+        y_mat = np.tile(y_mat.flatten(), 1).reshape(1, num_points, 1)
+        # r = √ ( x2 + y2 )
+        # θ = tan-1 ( y / x )
+        return {"x_mat": x_mat, "y_mat": y_mat}
+
         # y_range = np.linspace(-1*scaling, scaling, num = y_res)
-        r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
-        r_mat = np.tile(r_mat.flatten(), 1).reshape(1, num_points, 1)
+        #r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
+        #r_mat = np.tile(r_mat.flatten(), 1).reshape(1, num_points, 1)
 
    
     # what is this
@@ -463,14 +553,14 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
     # x_dat, y_dat, r_dat  = create_grid(w, h, scaling)
     # s_dat = s_val*s_dat
 
-    if structure == StructureType.Bands:
-        leaf_names = ["x","y"]
-        x_dat = inputs["x_mat"]
-        y_dat = inputs["y_mat"]
-        inp_x = torch.tensor(x_dat.flatten())
-        inp_y = torch.tensor(y_dat.flatten())
-    else :
-        leaf_names = ["x","y","s","r"]
+    # if structure == StructureType.Bands:
+    leaf_names = ["x","y"]
+    x_dat = inputs["x_mat"]
+    y_dat = inputs["y_mat"]
+    inp_x = torch.tensor(x_dat.flatten())
+    inp_y = torch.tensor(y_dat.flatten())
+    # else :
+    #     leaf_names = ["x","y","s","r"]
     
     # inp_s = torch.tensor(s_dat.flatten())
     # inp_minus_s = torch.tensor(-s_dat.flatten())
@@ -490,10 +580,10 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
                 if(c>=3):
                     break
 
-                if structure == StructureType.Bands:
+                # if structure == StructureType.Bands:
                     pixels = node_func(x=inp_x, y=inp_y)
-                else: 
-                    pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
+                # else: 
+                #     pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
                 
                 pixels_np = pixels.numpy()
                 # pixels = node_func(x=inv_x, y=inp_y, s = inp_s)
@@ -661,19 +751,55 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         step = h/stripes
                         score_direction = 0
                         discord = 0
+                        orientation = 0
                         while y<h:
                             limits = [y, y+step]
-                            temp =  direction_ratio(good_vectors, limits)
+                            dir_ratio =  direction_ratio(good_vectors, limits)
                             #check mirroring
                             if(count==1):
-                                if not(score_direction>0 and temp<0):
+                                if not(orientation>0 and dir_ratio[0]<0):
                                     score_direction = 0
                                     break
+                            orientation = dir_ratio[0]
 
                             factor = 1
                             if count % 2 == 1:
                                 factor = -1
-                            score_direction = score_direction + factor*temp
+                            score_direction = score_direction + factor*dir_ratio[1]
+
+                            y = y + step
+                            count = count + 1
+                        
+                        score_direction = score_direction / stripes
+                        # bonus for strength
+                        score_strength = strength_number(good_vectors)
+                        score_d= score_direction*score_strength
+
+                    elif structure == StructureType.Circles:
+                        # get tangent scores
+                        r = 0                
+                        count = 0
+                        stripes = 5
+                        step = h/stripes
+                        score_direction = 0
+                        discord = 0
+                        orientation = 0
+                        while r<h/2:
+                            limits = [r, r+step]
+                            tan
+                            dir_ratio =  tangent_ratio(good_vectors, limits)
+                            #check mirroring
+                            if(count==1):
+                                if not(orientation>0 and dir_ratio[0]<0):
+                                    score_direction = 0
+                                    break
+                            orientation = dir_ratio[0]
+
+                            factor = 1
+                            if count % 2 == 1:
+                                factor = -1
+                            score_direction = score_direction + factor*dir_ratio[1]
+
                             y = y + step
                             count = count + 1
                         
@@ -684,6 +810,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
 
                     else:
                         score_d = inside_outside_score(good_vectors, w, h)
+
                     # divergence_convergence_score(good_vectors, w, h)
 
                     score = score + score_d
