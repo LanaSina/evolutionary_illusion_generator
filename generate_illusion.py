@@ -481,47 +481,15 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
         y_mat = np.tile(y_mat.flatten(), 1).reshape(1, num_points, 1)
 
-        return {"x_mat": x_mat, "y_mat": y_mat} #, s_mat
-
-
-        # repeat x a few times
-        # x_range = np.linspace(-1*scaling, scaling, num = x_res)
-        # y_range = np.linspace(-1*scaling, scaling, num = y_res)
-        # x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-        # y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        # r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
-
+        return {"x_mat": x_mat, "y_mat": y_mat} 
 
     elif structure == StructureType.Circles:
-        r_rep = 5
+        r_rep = 3
         r_len = int(y_res/(2*r_rep))
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
         y_range = np.linspace(-1*scaling, scaling, num = y_res)
 
-        # a = np.linspace(-1*scaling, scaling, num = r_len)
-        # r_range = np.tile(a, r_rep)
-        # theta_range = np.linspace(0, 360*scaling, num = x_res)
-
-        # start = 0
-        # while start<r_rep*r_len :
-        #     stop = min(r_rep*r_len, start+r_len)
-        #     r_range[start:stop] =  -r_range[start:stop]
-        #     start = start+2*r_len
-
-        # # now make x by y matrices
-
-        # y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        # x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-
-        # # fill matrices
-        # # r = √ ( x2 + y2 )
-        # # θ = tan-1 ( y / x )
-        # # elementwise multiplication
-        # r_mat = np.sqrt(np.multiply(x_mat, x_mat) +  np.multiply(y_mat, y_mat))
-        # theta_mat = np.arctan( np.divide(y_mat, x_mat))
-
-
-
+ 
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
 
@@ -539,54 +507,34 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
             x = xx - (x_res/2)
             for yy in range(y_res):
                 y = yy - (y_res/2)
-                r = np.sqrt(x*x + y*y)
-                # coarse grain
-                r = min(r,y_res/2)
-                # r = r/y_res
-                # r = int(r * r_rep)
+                r_total = np.sqrt(x*x + y*y)
+                
+                # limit values to frame
+                r = min(r_total,y_res/2)
+                # it repeats every r_len
                 r = r % r_len
+                # normalize
+                r = r/r_len
 
                 if x == 0:
                     theta = math.pi/2.0
                 else:
-                    theta = np.arctan( y*1.0/x)
-                # # if r<int(y_res/2):
-                # #     rs = r_sign[int(r)]
-                # #     theta = rs*theta
+                    theta = np.arctan(y*1.0/x)
+
+                # keep all values positives for clean output
+                theta = theta + math.pi*2
+
+
+                r_index = int(r_total/r_len)
+                #print("r_index", r_index)
+                # if r_index%2 == 1:
+                #     # rotate
+                #     theta = theta + math.pi/4.0
 
                 x_mat[yy,xx] = r * np.cos(theta)
                 y_mat[yy,xx] = r * np.sin(theta)
 
-        # now calculate x and y from this?
-        # x = r × cos( θ )
-        # x_range = np.linspace(-1*scaling, scaling, num = x_res)
-        # y_range = np.linspace(-1*scaling, scaling, num = y_res)
-        # for x in x_range:
-        #     for y in y_range:
-        #         # r = √ ( x2 + y2 )
-        #         # θ = tan-1 ( y / x )
-        #         value = r * cos(theta)
-
-        # x_range = r_range*np.cos(theta_range)
-        # x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-        # #np.matmul(r_reverse, np.cos(theta_range).reshape((1, x_res)))
-        # # y = r × sin( θ )
-        # y_range = r_range*np.sin(theta_range)
-        # y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        # #y_mat = np.matmul(r_reverse, np.sin(theta_range).reshape((1, x_res)))
-
-        # x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
-        # y_mat = np.tile(y_mat.flatten(), 1).reshape(1, num_points, 1)
         return {"x_mat": x_mat, "y_mat": y_mat}
-
-        # y_range = np.linspace(-1*scaling, scaling, num = y_res)
-        #r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
-        #r_mat = np.tile(r_mat.flatten(), 1).reshape(1, num_points, 1)
-
-   
-    # what is this
-    # s_mat = np.ones((num_points))
-    # s_mat = np.tile(s_mat.flatten(), 1).reshape(1, num_points, 1)
 
     return {"input_0": x_mat, "input_1": y_mat, "input_2": r_mat} #, s_mat
 
@@ -844,27 +792,16 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         # get tangent scores
                         r = 0                
                         count = 0
-                        stripes = 5
+                        stripes = 3
                         step = h/stripes
                         score_direction = 0
                         discord = 0
                         orientation = 0
                         while r<h/2:
                             limits = [r, r+step]
-                            dir_ratio =  tangent_ratio(good_vectors, limits)
-                            #check mirroring
-                            if(count==1):
-                                if not(orientation>0 and dir_ratio[0]<0):
-                                    score_direction = 0
-                                    break
-                            orientation = dir_ratio[0]
-
-                            factor = 1
-                            if count % 2 == 1:
-                                factor = -1
-                            score_direction = score_direction + factor*dir_ratio[1]
-
-                            y = y + step
+                            dir_ratio =  tangent_ratio(good_vectors, limits)                    
+                            score_direction = score_direction + abs(dir_ratio[1])
+                            r = r + step
                             count = count + 1
                         
                         score_direction = score_direction / stripes
