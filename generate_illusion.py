@@ -329,12 +329,6 @@ def divergence_convergence_score(vectors, width, height):
 def tangent_ratio(vectors, limits = None):
     w = 160
     h = 120
-    c = [w/2.0, h/2.0]
-    # mean_ratio = 0
-    # global_sum= [0,0]
-    # abs_sum = [0,0]
-    # sum_norm = 0
-    #
     direction = 0
     mean_alignment = 0
     # if beta = angle between radius and current vector
@@ -355,7 +349,11 @@ def tangent_ratio(vectors, limits = None):
         # sum_norm = sum_norm + norm_v
         # projection of vectors on each other a = V*R / ||V||*||R||
         a = r[2] * v[2] + r[3] * v[3]
-        a = a/(norm_r * norm_v)
+        # was this cause of NaN?
+        if(norm_r*norm_v==0):
+            a = 0
+        else:
+            a = a/(norm_r * norm_v)
         mean_alignment = mean_alignment + a
         # need the sign of the angle for orientation of vector
         # if(a>0):
