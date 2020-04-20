@@ -518,13 +518,17 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 r = r/r_len
 
                 # now structure theta values
-                if x == 0:
-                    theta = math.pi/2.0
-                else:
-                    theta = np.arctan(y*1.0/x)
+                theta = 0
+                if r <= y_res/2:
+                    if x == 0:
+                        theta = math.pi/2.0
+                    else:
+                        theta = np.arctan(y*1.0/x)
 
-                # spread the values
-                #theta = theta + math.pi*2
+                    # spread the values
+                    theta = theta + math.pi*2
+                    theta = theta*y_res/ (math.pi*4)
+
                 # if x < 0:
                 #     theta = math.pi/4 + theta
                 #theta = theta/10
