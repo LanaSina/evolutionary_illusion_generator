@@ -493,15 +493,16 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
 
-        r_sign = np.ones((int(y_res/2),1))
-        start = 0
-        while start<int(y_res/2):
-            stop = min(r_rep*r_len, start+r_len)
-            r_sign[start:stop] =  -r_sign[start:stop]
-            start = start+2*r_len
+        # r_sign = np.ones((int(y_res/2),1))
+        # start = 0
+        # while start<int(y_res/2):
+        #     stop = min(r_rep*r_len, start+r_len)
+        #     r_sign[start:stop] =  -r_sign[start:stop]
+        #     start = start+2*r_len
 
         # x = r × cos( θ )
         # y = r × sin( θ )
+        print("---")
         for xx in range(x_res):
             # center
             x = xx - (x_res/2)
@@ -516,23 +517,28 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 # normalize
                 r = r/r_len
 
+                # now structure theta values
                 if x == 0:
                     theta = math.pi/2.0
                 else:
                     theta = np.arctan(y*1.0/x)
 
-                # keep all values positives for clean output
-                theta = theta + math.pi*2
+                # spread the values
+                #theta = theta + math.pi*2
+                # if x < 0:
+                #     theta = math.pi/4 + theta
+                #theta = theta/10
 
+                #print(theta)
 
-                r_index = int(r_total/r_len)
-                #print("r_index", r_index)
-                # if r_index%2 == 1:
-                #     # rotate
-                #     theta = theta + math.pi/4.0
+                # r_index = int(r_total/r_len)
 
-                x_mat[yy,xx] = r * np.cos(theta)
-                y_mat[yy,xx] = r * np.sin(theta)
+                #if r_index%2 == 1:
+                    # rotate
+                    #theta = theta + math.pi/4.0
+
+                x_mat[yy,xx] = r #np.cos(theta) * r
+                y_mat[yy,xx] = theta # np.sin(theta) * r
 
         return {"x_mat": x_mat, "y_mat": y_mat}
 
