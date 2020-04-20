@@ -502,7 +502,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         # x = r × cos( θ )
         # y = r × sin( θ )
-        print("---")
         for xx in range(x_res):
             # center
             x = xx - (x_res/2)
@@ -511,7 +510,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 r_total = np.sqrt(x*x + y*y)
                 
                 # limit values to frame
-                r = min(r_total,y_res/2)
+                r = min(r_total, y_res/2)
                 # it repeats every r_len
                 r = r % r_len
                 # normalize
@@ -519,30 +518,22 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
                 # now structure theta values
                 theta = 0
-                if r <= y_res/2:
+                if r_total < y_res/2:
                     if x == 0:
                         theta = math.pi/2.0
                     else:
                         theta = np.arctan(y*1.0/x)
 
-                    # spread the values
-                    theta = theta + math.pi*2
-                    theta = theta*y_res/ (math.pi*4)
+                    if x<0:
+                        theta = theta + math.pi
 
-                # if x < 0:
-                #     theta = math.pi/4 + theta
-                #theta = theta/10
+                    r_index = int(r_total/r_len)
+                    if r_index%2 == 1:
+                        # rotate
+                        theta = (theta + math.pi/4.0) 
 
-                #print(theta)
-
-                # r_index = int(r_total/r_len)
-
-                #if r_index%2 == 1:
-                    # rotate
-                    #theta = theta + math.pi/4.0
-
-                x_mat[yy,xx] = r #np.cos(theta) * r
-                y_mat[yy,xx] = theta # np.sin(theta) * r
+                x_mat[yy,xx] = r 
+                y_mat[yy,xx] = theta 
 
         return {"x_mat": x_mat, "y_mat": y_mat}
 
