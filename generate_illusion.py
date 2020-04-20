@@ -532,6 +532,9 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                         # rotate
                         theta = (theta + math.pi/4.0) 
 
+                    # focus on 1 small pattern
+                    theta = theta % (math.pi/6.0)
+
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
 
