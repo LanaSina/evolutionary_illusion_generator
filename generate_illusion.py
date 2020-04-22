@@ -53,7 +53,7 @@ def plausibility_ratio(vectors):
     r = []
     for vector in vectors:
         norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-        if norm> 0.5: # or norm==0: 
+        if norm> 0.3: # or norm==0: 
             continue
         r.append(vector)
 
@@ -352,17 +352,13 @@ def tangent_ratio(vectors, limits = None):
         v[2] = v[0] + v[2]
         v[3] = v[1] + v[3]
 
-        print(v)
         # radius vector R from origin of V to image center
         r = [0, 0, v[0], v[1]]
-        print(r)
-
         # offsets
         ro = [r[2]-r[0], r[3]-r[1]]
         vo = [v[2]-v[0], v[3]-v[1]]
 
         # check limits
-
         norm_r = np.sqrt(ro[0]*ro[0] + ro[1]*ro[1])
         norm_v = np.sqrt(vo[0]*vo[0] + vo[1]*vo[1])
         if not limits is None:
@@ -638,7 +634,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
             # save greyscale image
             bw_image = image.convert('LA')
             image_name = output_dir + "images/" + str(index).zfill(10) + "_bw.png"
-            image.save(image_name, "PNG")
+            bw_image.save(image_name, "PNG")
 
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
@@ -725,6 +721,8 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                             # bonus for strength
                             score_strength = strength_number(good_vectors)
                             score_direction = score_direction + min(1,score_strength)
+                            # bonus for number
+                            score_direction = score_direction + min(1,len(good_vectors)/60)
                         
                         score_d = score_direction 
 
