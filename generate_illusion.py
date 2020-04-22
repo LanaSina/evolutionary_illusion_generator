@@ -327,39 +327,56 @@ def divergence_convergence_score(vectors, width, height):
 # a = 1 if vectors rather aligned clockwise;  -1 if counterclockwise
 # b = mean of projection on tangent (normalised)
 def tangent_ratio(vectors, limits = None):
+
+    # we want to know the angle between
+    # a radius of the circle at the center of the image
+    # and the motion vectors
+
+    # center
     w = 160
     h = 120
+    c = [w/2.0, h/2.0]
+
+    # scores
     direction = 0
     mean_alignment = 0
-    # if beta = angle between radius and current vector
-    # ratio of projection of V on tangent / ||V|| = sin(beta)
-    # ratio = sin(arcos(R*V/||V||*||R||)) = sqrt(1- a^2)
+
     count = 0
     for v in vectors:
         # radius vector R from image center to origin of V
         r = [c[0], c[1], v[0]-c[0], v[1]-c[1]]
+
+        # check limits
         norm_r = np.sqrt(r[2]*r[2] + r[3]*r[3])
         norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
         if not limits is None:
             if (norm_r<limits[0]) or (norm_r>limits[1]):
                 continue
 
-        # global_sum = [global_sum[0] + v[2], global_sum[1]+v[3]]
-        # abs_sum = [abs_sum[0] + abs(v[2]), abs_sum[1]+ abs(v[3])]
-        # sum_norm = sum_norm + norm_v
-        # projection of vectors on each other a = V*R / ||V||*||R||
-        a = r[2] * v[2] + r[3] * v[3]
-        # was this cause of NaN?
         if(norm_r*norm_v==0):
-            a = 0
-        else:
-            a = a/(norm_r * norm_v)
-        mean_alignment = mean_alignment + a
-        # need the sign of the angle for orientation of vector
-        # if(a>0):
-        #     # ratio
-        #     ratio = np.sqrt(1 - a*a)
-        #     mean_ratio = mean_ratio + ratio
+            count = count + 1
+            continue
+
+        # find angle between vectors by using dot product
+        dot_p = r[2] * v[2] + r[3] * v[3]
+        angle = math.arcos(dot_p/norm_r * norm_v)
+
+        # this angle is ideally pi/2 or -pi/2
+        score = abs(angle) - math.pi/2
+        if(score>math.pi/2):
+            print("############### error, angle is", angle, "score", score)
+            print("vector")
+            print(vector)
+            raise ValueError
+        # and the max difference also pi/2
+        score = 1 - (abs(score)/ math.pi/2)
+
+        
+        # we'd like them to all have the same alignment
+        if(angle<0):
+            mean_alignment = mean_alignment + score 
+        else
+            mean_alignment = mean_alignment - score
         count = count + 1
 
     if mean_alignment > 0:
@@ -370,20 +387,25 @@ def tangent_ratio(vectors, limits = None):
     if count > 0:
         mean_alignment = mean_alignment/count
 
-    return [direction, mean_alignment]
+    return [direction, abs(mean_alignment)]
 
 
 
 # returns a high score if vectors are aligned on concentric circles
 # [ratio of tangent, ratio of alignment]
 def circle_tangent_ratio(vectors, limits = None):
+    # center
     w = 160
     h = 120
     c = [w/2.0, h/2.0]
+
+    # scores
     mean_ratio = 0
     global_sum= [0,0]
     abs_sum = [0,0]
     sum_norm = 0
+
+
     # if beta = angle between radius and current vector
     # ratio of projection of V on tangent / ||V|| = sin(beta)
     # ratio = sin(arcos(R*V/||V||*||R||)) = sqrt(1- a^2)
@@ -391,6 +413,7 @@ def circle_tangent_ratio(vectors, limits = None):
     for v in vectors:
         # radius vector R from image center to origin of V
         r = [c[0], c[1], v[0]-c[0], v[1]-c[1]]
+        # check limits
         norm_r = np.sqrt(r[2]*r[2] + r[3]*r[3])
         norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
         if not limits is None:
@@ -792,21 +815,11 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
 
                     elif structure == StructureType.Circles:
                         # get tangent scores
-                        r = 0                
-                        count = 0
-                        stripes = 3
-                        step = h/stripes
                         score_direction = 0
-                        discord = 0
-                        orientation = 0
-                        while r<h/2:
-                            limits = [r, r+step]
-                            dir_ratio =  tangent_ratio(good_vectors, limits)                    
-                            score_direction = score_direction + abs(dir_ratio[1])
-                            r = r + step
-                            count = count + 1
-                        
-                        score_direction = score_direction / stripes
+                        limits = [0, h/2]
+                        dir_ratio =  tangent_ratio(good_vectors, limits)                    
+                        score_direction = score_direction + abs(dir_ratio[1])
+
                         # bonus for strength
                         score_strength = strength_number(good_vectors)
                         score_d= score_direction*score_strength
