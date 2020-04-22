@@ -514,13 +514,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
 
-        # r_sign = np.ones((int(y_res/2),1))
-        # start = 0
-        # while start<int(y_res/2):
-        #     stop = min(r_rep*r_len, start+r_len)
-        #     r_sign[start:stop] =  -r_sign[start:stop]
-        #     start = start+2*r_len
-
         # x = r × cos( θ )
         # y = r × sin( θ )
         for xx in range(x_res):
@@ -603,14 +596,7 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
     y_dat = inputs["y_mat"]
     inp_x = torch.tensor(x_dat.flatten())
     inp_y = torch.tensor(y_dat.flatten())
-    # else :
-    #     leaf_names = ["x","y","s","r"]
-    
-    # inp_s = torch.tensor(s_dat.flatten())
-    # inp_minus_s = torch.tensor(-s_dat.flatten())
-    #reverse x
-    #inp_r = torch.tensor(r_dat.flatten())
-
+   
     if(c_dim>1):
             image_array = np.zeros(((h,w,3)))
             c = 0
@@ -624,25 +610,14 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
                 if(c>=3):
                     break
 
-                # if structure == StructureType.Bands:
                 pixels = node_func(x=inp_x, y=inp_y)
-                # else: 
-                #     pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
-                
                 pixels_np = pixels.numpy()
-                # pixels = node_func(x=inv_x, y=inp_y, s = inp_s)
-                # reverse_pixels_np = pixels.numpy()
-                # for x_slice in range(0,x_rep):
-                #     start = x_slice*x_subwidth
-                #     image_array[0:half_h, start:(start+x_subwidth), c] = np.reshape(pixels_np, (half_h,x_subwidth))
-                #     image_array[half_h:h, start:(start+x_subwidth), c] = np.reshape(reverse_pixels_np, (half_h,x_subwidth))
-
+            
                 image_array[0:h, 0:w, c] = np.reshape(pixels_np, (h,w))
 
                 c = c + 1
             img_data = np.array(image_array*255.0, dtype=np.uint8)
             image =  Image.fromarray(img_data)#, mode = "HSV")
-            #image = image.convert(mode="RGB")
     else:
         net_nodes = create_cppn(
             genome,
@@ -697,10 +672,17 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
             index = i*pertype_count+j
             image = get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = s_val)
 
+            # save color image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
+            image.save(image_name, "PNG")
+
+            # save greyscale image
+            bw_image = image.convert('LA')
+            image_name = output_dir + "images/" + str(index).zfill(10) + "_bw.png"
+            image.save(image_name, "PNG")
+
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
-            image.save(image_name, "PNG")
             j = j+1
         i = i + 1
 
@@ -813,10 +795,13 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         i = i+1
 
     # save best illusion
-    image_name = images_list[best_illusion] #output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+    image_name = images_list[best_illusion]
     move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
     print("best", image_name, best_illusion)
+    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_bw.png"
+    move_to_name = best_dir + "/best_bw.png"
+    shutil.copy(image_name, move_to_name)
     image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
