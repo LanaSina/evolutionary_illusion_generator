@@ -53,7 +53,7 @@ def plausibility_ratio(vectors):
     r = []
     for vector in vectors:
         norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-        if norm> 0.15: # or norm==0: 
+        if norm> 0.5: # or norm==0: 
             continue
         r.append(vector)
 
