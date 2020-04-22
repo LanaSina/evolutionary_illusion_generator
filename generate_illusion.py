@@ -359,7 +359,7 @@ def tangent_ratio(vectors, limits = None):
 
         # find angle between vectors by using dot product
         dot_p = r[2] * v[2] + r[3] * v[3]
-        angle = math.arcos(dot_p/norm_r * norm_v)
+        angle = math.acos(dot_p/norm_r * norm_v)
 
         # this angle is ideally pi/2 or -pi/2
         score = abs(angle) - math.pi/2
@@ -375,7 +375,7 @@ def tangent_ratio(vectors, limits = None):
         # we'd like them to all have the same alignment
         if(angle<0):
             mean_alignment = mean_alignment + score 
-        else
+        else:
             mean_alignment = mean_alignment - score
         count = count + 1
 
@@ -722,22 +722,6 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
             original_vectors[i] = [[0,0,-1000,0]]
         i = i + 1
 
-    # # mirror images
-    # print("Mirror images")
-    # mirror_multiple(output_dir + "images/" , output_dir + "mirrored_images/" , TransformationType.MirrorAndFlip)
-    # # mirrored flows
-    # i = 0
-    # mirrored_vectors = [None] * total_count
-    # for input_image in images_list:
-    #     prediction_image_path = prediction_dir + str(i).zfill(10) + ".png"
-    #     results = lucas_kanade(input_image, prediction_image_path, output_dir+"/flow/", save=True, verbose = 0)
-    #     if results["vectors"]:
-    #         original_vectors[i] = np.asarray(results["vectors"])
-    #     else:
-    #         original_vectors[i] = [[0,0,-1000,0]]
-    #     i = i + 1
-
-
     # calculate score
     #radius_limits = [20,50]
     scores = [None] * len(population)
@@ -757,30 +741,6 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
-                    # score = score + 0.5*min(len(good_vectors),5)
-                #     step = h/2
-                #     y = 0                
-                #     count = 0
-                #     score_2 = [None]*2
-                #     while y<h:
-                #         limit = [y, y+step]
-                #         score_2[count] =  direction_ratio(good_vectors, limit)
-                #         y = y + step
-                #         count = count + 1
-
-                #     # bonus points
-                #     if(score_2[0]*score_2[1]<0):
-                #         # is the ideal number of vectors
-                #         temp = 24 - len(good_vectors)
-                #         if(temp==0):
-                #             n_dist = 1
-                #         else:
-                #             n_dist = 1/temp*temp
-                #         score = score + n_dist*(abs(score_2[0]) + abs(score_2[1]))/2
-                #         mean_score = mean_score + score
-                # if score>final_score:
-                #     final_score = score
-                #     temp_index = index
 
                     if structure == StructureType.Bands:
                         y = 0                
@@ -820,9 +780,12 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         dir_ratio =  tangent_ratio(good_vectors, limits)                    
                         score_direction = score_direction + abs(dir_ratio[1])
 
-                        # bonus for strength
-                        score_strength = strength_number(good_vectors)
-                        score_d= score_direction*score_strength
+                        if score_direction > 0.5:
+                            # bonus for strength
+                            score_strength = strength_number(good_vectors)
+                            score_direction = score_direction + min(1,score_strength)
+                        
+                        score_d = score_direction 
 
                     else:
                         score_d = inside_outside_score(good_vectors, w, h)
