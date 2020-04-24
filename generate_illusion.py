@@ -354,13 +354,18 @@ def tangent_ratio(vectors, limits = None):
 
         # radius vector R from origin of V to image center
         r = [0, 0, v[0], v[1]]
-        # offsets
+        # offsets: change origin to vector origin
         ro = [r[2]-r[0], r[3]-r[1]]
         vo = [v[2]-v[0], v[3]-v[1]]
 
         # check limits
         norm_r = np.sqrt(ro[0]*ro[0] + ro[1]*ro[1])
         norm_v = np.sqrt(vo[0]*vo[0] + vo[1]*vo[1])
+
+        # normalize 
+        ro = ro/norm_r
+        vo = vo/norm_v
+
         if not limits is None:
             if (norm_r<limits[0]) or (norm_r>limits[1]):
                 continue
@@ -371,13 +376,18 @@ def tangent_ratio(vectors, limits = None):
 
         # find angle between vectors by using dot product
         dot_p = ro[0]*vo[0] + ro[1]*vo[1]
-        angle = math.acos(dot_p/(norm_r * norm_v))
+        temp = dot_p #  divide by (norm v * norm r) which is 1*1
+        # why would this happen
+        if temp>1 or temp<-1:
+            print("############### error, acos of ", temp)
+            print("vector", v) 
+            print("normalised", ro, vo)
+            print("norms", norm_r, norm_v)
+            continue
 
-        angle_d = angle*180/math.pi
+        angle = math.acos(dot_p/(norm_r * norm_v))
         # this angle is ideally pi/2 or -pi/2
         score = (math.pi/2) - abs(angle)
-
-        angle_d = score*180/math.pi
         # and the max difference is pi/2
         score = 1 - (abs(score)/ (math.pi/2))
         
@@ -593,6 +603,9 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
 
     return image
 
+def rgb2gray(rgb):
+    return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
+
 # population:  [id, net]
 def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3, best_dir = "."):
     print("Calculating fitnesses of populations: ", len(population))
@@ -631,10 +644,17 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
             image.save(image_name, "PNG")
 
-            # save greyscale image
-            bw_image = image.convert('LA')
+            # save grayscale image
+            bw_image =  image.convert('L') #rgb2gray(np.array(image)) #
+            bw_image =  bw_image.convert('RGB')
+            # bw_image = np.concatenate((img,)*3, axis=-1)
+            # print(bw_image.size)
             image_name = output_dir + "images/" + str(index).zfill(10) + "_bw.png"
+            #Image.fromarray(bw_image).save(image_name, "PNG")
             bw_image.save(image_name, "PNG")
+
+            #color_img = cv2.cvtColor(gray_img, cv.CV_GRAY2RGB)
+
 
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
@@ -753,13 +773,13 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
 
     # save best illusion
     image_name = images_list[best_illusion]
-    move_to_name = best_dir + "/best.png"
-    shutil.copy(image_name, move_to_name)
-    print("best", image_name, best_illusion)
-    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_bw.png"
     move_to_name = best_dir + "/best_bw.png"
     shutil.copy(image_name, move_to_name)
-    image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
+    print("best", image_name, best_illusion)
+    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+    move_to_name = best_dir + "/best.png"
+    shutil.copy(image_name, move_to_name)
+    image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + "_bw.png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
