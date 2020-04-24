@@ -362,6 +362,10 @@ def tangent_ratio(vectors, limits = None):
         norm_r = np.sqrt(ro[0]*ro[0] + ro[1]*ro[1])
         norm_v = np.sqrt(vo[0]*vo[0] + vo[1]*vo[1])
 
+        if(norm_r*norm_v==0):
+            count = count + 1
+            continue
+            
         # normalize 
         ro = ro/norm_r
         vo = vo/norm_v
@@ -370,9 +374,7 @@ def tangent_ratio(vectors, limits = None):
             if (norm_r<limits[0]) or (norm_r>limits[1]):
                 continue
 
-        if(norm_r*norm_v==0):
-            count = count + 1
-            continue
+        
 
         # find angle between vectors by using dot product
         dot_p = ro[0]*vo[0] + ro[1]*vo[1]
