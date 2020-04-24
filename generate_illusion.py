@@ -365,7 +365,7 @@ def tangent_ratio(vectors, limits = None):
         if(norm_r*norm_v==0):
             count = count + 1
             continue
-            
+
         # normalize 
         ro = ro/norm_r
         vo = vo/norm_v
@@ -374,20 +374,22 @@ def tangent_ratio(vectors, limits = None):
             if (norm_r<limits[0]) or (norm_r>limits[1]):
                 continue
 
-        
-
         # find angle between vectors by using dot product
-        dot_p = ro[0]*vo[0] + ro[1]*vo[1]
-        temp = dot_p #  divide by (norm v * norm r) which is 1*1
-        # why would this happen
-        if temp>1 or temp<-1:
-            print("############### error, acos of ", temp)
-            print("vector", v) 
-            print("normalised", ro, vo)
-            print("norms", norm_r, norm_v)
-            continue
+        dot_p = ro[0]*vo[0] + ro[1]*vo[1] #  divide by (norm v * norm r) which is 1*1
+        # sometimes slight errors
 
-        angle = math.acos(dot_p/(norm_r * norm_v))
+        if dot_p>1:
+            dot_p = 1
+        elif dot_p<-1:
+            dot_p =-1
+
+            # print("############### error, acos of ", dot_p)
+            # print("vector", v) 
+            # print("normalised", ro, vo)
+            # print("norms", norm_r, norm_v)
+            # continue
+
+        angle = math.acos(dot_p)
         # this angle is ideally pi/2 or -pi/2
         score = (math.pi/2) - abs(angle)
         # and the max difference is pi/2
@@ -396,10 +398,12 @@ def tangent_ratio(vectors, limits = None):
         # we'd like them to all have the same alignment
         # use cross product to find ccw or cv
         cw = ro[0]*vo[1] - ro[1]*vo[0]
-        if(cw>0):
-            mean_alignment = mean_alignment + score 
-        else:
-            mean_alignment = mean_alignment - score
+        # maybe just add, if it's a flow fluke it will always be lower anyway
+        mean_alignment = mean_alignment + abs(score)
+        # if(cw>0):
+        #     mean_alignment = mean_alignment + score 
+        # else:
+        #     mean_alignment = mean_alignment - score
         count = count + 1
 
     if mean_alignment > 0:
@@ -612,7 +616,7 @@ def rgb2gray(rgb):
 def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3, best_dir = "."):
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
-    repeat = 10
+    repeat = 5
     w = 160
     h = 120
     half_h = int(h/2)
@@ -646,35 +650,43 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
             image.save(image_name, "PNG")
 
-            # save grayscale image
-            bw_image =  image.convert('L') #rgb2gray(np.array(image)) #
-            bw_image =  bw_image.convert('RGB')
-            # bw_image = np.concatenate((img,)*3, axis=-1)
-            # print(bw_image.size)
-            image_name = output_dir + "images/" + str(index).zfill(10) + "_bw.png"
-            #Image.fromarray(bw_image).save(image_name, "PNG")
-            bw_image.save(image_name, "PNG")
-
-            #color_img = cv2.cvtColor(gray_img, cv.CV_GRAY2RGB)
-
-
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
+
+            # save grayscale image
+            # bw_image =  image.convert('L') 
+            # bw_image =  bw_image.convert('RGB')
+            # image_name = output_dir + "images/" + str(index).zfill(10) + "_bw.png"
+            # bw_image.save(image_name, "PNG")
+
+            # images_list[index] = image_name
+            # repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
+            
             j = j+1
         i = i + 1
 
-    print("Predicting illusions....")
+    print("Predicting illusions...")
+    skip = 1
+    extension_duration = 2
     # runs repeat x times on the input image, save in result folder
     test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
-                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=repeat,
-                reset_each = True, verbose = 0
+                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
+                extension_start = repeat, extension_duration = extension_duration,
+                reset_at = repeat+extension_duration, verbose = 0
                 )
     # calculate flows
+    print("Calculating flows...")
     i = 0
     original_vectors = [None] * total_count
     for input_image in images_list:
-        prediction_image_path = prediction_dir + str(i).zfill(10) + ".png"
-        results = lucas_kanade(input_image, prediction_image_path, output_dir+"/flow/", save=True, verbose = 0)
+        index_0 = int(i*(repeat/skip)+ repeat-1)
+        index_1 = index_0+1
+        #"debug/0000000004.png" "debug/0000000005_extended.png"
+        prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
+        prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+        #print(prediction_0, prediction_1)
+        # results = lucas_kanade(input_image, prediction_image_path, output_dir+"/flow/", save=True, verbose = 0)
+        results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
         else:
@@ -739,10 +751,10 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         dir_ratio =  tangent_ratio(good_vectors, limits)                    
                         score_direction = score_direction + abs(dir_ratio[1])
 
-                        if score_direction > 0.5:
+                        if abs(dir_ratio[1]) > 0.5:
                             # bonus for strength
-                            score_strength = strength_number(good_vectors)
-                            score_direction = score_direction + min(1,score_strength)
+                            # score_strength = strength_number(good_vectors)
+                            # score_direction = score_direction + min(1,score_strength)
                             # bonus for number
                             score_direction = score_direction + min(1,len(good_vectors)/60)
                         
@@ -781,7 +793,8 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
-    image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + "_bw.png"
+    index = int(best_illusion*(repeat/skip) + repeat-1)
+    image_name = output_dir + "/flow/" + str(index).zfill(10) + ".png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
