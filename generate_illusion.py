@@ -23,30 +23,10 @@ import torch
 # TODO enumerate illusion types
 class StructureType(IntEnum):
     Bands = 0
-    Circles = 1
+    CircleslesRotation = 1
     Free = 2
+    CirclesExpansion = 3
 
-# high score if vectors pass the mirror test
-def illusion_score(vectors, flipped=False, mirrored=False):
-    # check vector alignements
-    comp_x = 0
-    count = 0
-    for vector in vectors:
-        # normalize
-        norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-
-        # print("norm", norm)
-        if norm> 0.15 or norm==0: 
-            continue
-
-        if mirrored:
-            comp_x = comp_x + (-vector[2]/norm)
-        else:
-            comp_x = comp_x + vector[2]/norm
-
-    # minimize comp_y, maximize comp_x
-    score = comp_x
-    return score
 
 # returns ratio and vectors that are not unplausibly big
 def plausibility_ratio(vectors):
@@ -72,55 +52,6 @@ def strength_number(vectors):
     
     return sum_v/total_v
 
-# returns the mirroring score (lower == better) 
-def mirroring_score(vectors, m_vectors):
-    # print("vectors", vectors)
-    sum_v = [0,0]
-    for vector in vectors:
-        sum_v = [sum_v[0] + vector[2], sum_v[1] + vector[3]]
-
-    sum_mv = [0,0]
-    for vector in m_vectors:
-        sum_mv = [sum_mv[0] + vector[2], sum_mv[1] + vector[3]]
-
-    s0x = sum_v[0] + sum_mv[0]
-    s0y = sum_v[1] + sum_mv[1]
-
-    return abs(s0x) + abs(s0y)
-
-# return the mirrored score on x and y, 
-# the global strength of all plausible vectors, 
-# and the ratio of plausible vectors vs too big vectors
-def combined_illusion_score(vectors, m_vectors):
-    # check vector alignements
-    sum_v = [0,0]
-    total_v = 0
-    for vector in vectors:
-        norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-        if norm> 0.15 or norm==0: 
-            continue
-        sum_v = [sum_v[0] + vector[2], sum_v[1] + vector[3]]
-        total_v = total_v +1
-
-    sum_mv = [0,0]
-    total_mv = 0
-    for vector in m_vectors:
-        norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-        if norm> 0.15 or norm==0: 
-            continue
-        sum_mv = [sum_mv[0] + vector[2], sum_mv[1] + vector[3]]
-        total_mv = total_mv +1
-
-    s0x = sum_v[0] + sum_mv[0]
-    s0y = sum_v[1] + sum_mv[1]
-    s1 = abs(sum_v[0]) +  abs(sum_v[1]) +  abs(sum_mv[0]) +  abs(sum_mv[1])
-    s2 = total_v + total_mv
-    if s2 == 0:
-        s2 = 0.01
-    else:
-        s2 = s2 / (len(vectors) + len(m_vectors))
-
-    return [s0x + s0y, s1, s2]
 
 # returns [a,b]
 # a = 1 if vectors rather aligned on x to the right;  -1 if to the left
@@ -154,6 +85,52 @@ def direction_ratio(vectors, limits = None):
         orientation = -1
 
     return [orientation, mean_ratio]
+
+
+# rotate all vectors to align their origin on x axis
+# calculate the mean and variance of normalized vectors
+# returns a high score if the variance is low (ie the vectors are symmetric)
+# limits = radius limits
+def rotation_symmetry_score(vectors, limits = None):
+
+    # fill matrix of vectors
+    rotated_vectors = np.zeros((length(vectors), 4))
+    distances = np.zeros((length(vectors)))
+    count = 0
+    for v in vectors:
+        distance = np.sqrt(v[0]*v[0] + v[1]*v[1])
+        if not limits is None:
+            if (distance<limits[0]) or (distance>limits[1]):
+                continue
+
+        rotated_vectors[count] = v
+        distances[count] = distance
+        count++
+
+    # remove everything beyond count
+    rotated_vectors = rotated_vectors[:count, :]
+    distances = distances[:count, :]
+ 
+
+    # normalise vectors
+    norms = np.sqrt(rotated_vectors[:,2]*rotated_vectors[:,2] + rotated_vectors[:,3]*rotated_vectors[:,3])
+    rotated_vectors[:,2:3] = rotated_vectors[:,2:3]/norms
+
+    # rotate vectors clockwise to x axis
+    # new_x = cos(a)vx + sin(a)vy, new_y = cos(a)vx - sin(a)vy
+    # cos(a) = x/dist, sin a = y/dist
+    # new_x = (x*vx + y*vy)/dist
+    # new y = (x*vx - y*vy)/dist
+    # distances = np.sqrt(rotated_vectors[:,0]*rotated_vectors[:,0] + rotated_vectors[:,1]*rotated_vectors[:,1])
+    rotated_vectors[:,2] =  (rotated_vectors[:,0]*rotated_vectors[:,2] + rotated_vectors[:,1]*rotated_vectors[:,3])/distances
+    rotated_vectors[:,3] =  (rotated_vectors[:,0]*rotated_vectors[:,2] - rotated_vectors[:,1]*rotated_vectors[:,3])/distances
+
+    var_x = np.var(rotated_vectors[:,2])
+    var_y = np.var(rotated_vectors[:,3])
+
+    # max var is 1
+    score = 1 - (var_x + var_y)/2
+    return score
 
 
 # agreement inside the cell, + disagreement outside of it
@@ -383,12 +360,6 @@ def tangent_ratio(vectors, limits = None):
         elif dot_p<-1:
             dot_p =-1
 
-            # print("############### error, acos of ", dot_p)
-            # print("vector", v) 
-            # print("normalised", ro, vo)
-            # print("norms", norm_r, norm_v)
-            # continue
-
         angle = math.acos(dot_p)
         # this angle is ideally pi/2 or -pi/2
         score = (math.pi/2) - abs(angle)
@@ -399,11 +370,11 @@ def tangent_ratio(vectors, limits = None):
         # use cross product to find ccw or cv
         cw = ro[0]*vo[1] - ro[1]*vo[0]
         # maybe just add, if it's a flow fluke it will always be lower anyway
-        mean_alignment = mean_alignment + abs(score)
-        # if(cw>0):
-        #     mean_alignment = mean_alignment + score 
-        # else:
-        #     mean_alignment = mean_alignment - score
+        # mean_alignment = mean_alignment + abs(score)
+        if(cw>0):
+            mean_alignment = mean_alignment + score 
+        else:
+            mean_alignment = mean_alignment - score
         count = count + 1
 
     if mean_alignment > 0:
@@ -475,7 +446,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         return {"x_mat": x_mat, "y_mat": y_mat} 
 
-    elif structure == StructureType.Circles:
+    elif structure == StructureType.CirclesRotations:
         r_rep = 3
         r_len = int(y_res/(2*r_rep))
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
@@ -742,22 +713,26 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         score_direction = score_direction / stripes
                         # bonus for strength
                         score_strength = strength_number(good_vectors)
-                        score_d= score_direction*score_strength
+                        score_d = score_direction*score_strength
 
-                    elif structure == StructureType.Circles:
+                    elif structure == StructureType.CirclesRotations:
                         # get tangent scores
                         score_direction = 0
-                        limits = [0, h/2]
-                        dir_ratio =  tangent_ratio(good_vectors, limits)                    
-                        score_direction = score_direction + abs(dir_ratio[1])
+                        # limits = [0, h/2]
+                        # dir_ratio =  tangent_ratio(good_vectors, limits)                    
+                        # score_direction = score_direction + abs(dir_ratio[1])
+                        temp = h/(2*3)
+                        limits = [temp*2, temp*3]
+                        score_direction = rotation_symmetry_score(good_vectors, )
+
 
                         if abs(dir_ratio[1]) > 0.5:
                             # bonus for strength
                             # score_strength = strength_number(good_vectors)
                             # score_direction = score_direction + min(1,score_strength)
                             # bonus for number
-                            score_direction = score_direction + min(1,len(good_vectors)/60)
-                        
+                            # score_direction = score_direction + min(1,len(good_vectors)/60)
+
                         score_d = score_direction 
 
                     else:
@@ -843,7 +818,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='optical flow tests')
     parser.add_argument('--model', '-m', default='', help='.model file')
     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
-    parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
+    parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: CirclesRotations; 2: Free form')
     parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
 
