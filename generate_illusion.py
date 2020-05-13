@@ -1,6 +1,9 @@
 import argparse
-from chainer_prednet.PredNet.call_prednet import test_prednet
-from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
+#vfrom chainer_prednet.PredNet.call_prednet import test_prednet
+# from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
+# when import eandomly does not work
+from chainer_prednet import *
+
 import cv2
 import csv
 from enum import IntEnum
@@ -23,7 +26,7 @@ import torch
 # TODO enumerate illusion types
 class StructureType(IntEnum):
     Bands = 0
-    CircleslesRotation = 1
+    CirclesRotation = 1
     Free = 2
     CirclesExpansion = 3
 
@@ -105,7 +108,7 @@ def rotation_symmetry_score(vectors, limits = None):
 
         rotated_vectors[count] = v
         distances[count] = distance
-        count++
+        count = count+1
 
     # remove everything beyond count
     rotated_vectors = rotated_vectors[:count, :]
@@ -446,7 +449,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         return {"x_mat": x_mat, "y_mat": y_mat} 
 
-    elif structure == StructureType.CirclesRotations:
+    elif structure == StructureType.CirclesRotation:
         r_rep = 3
         r_len = int(y_res/(2*r_rep))
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
@@ -726,7 +729,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         score_direction = rotation_symmetry_score(good_vectors, )
 
 
-                        if abs(dir_ratio[1]) > 0.5:
+                        #if abs(dir_ratio[1]) > 0.5:
                             # bonus for strength
                             # score_strength = strength_number(good_vectors)
                             # score_direction = score_direction + min(1,score_strength)
@@ -818,7 +821,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='optical flow tests')
     parser.add_argument('--model', '-m', default='', help='.model file')
     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
-    parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: CirclesRotations; 2: Free form')
+    parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: CirclesRotation; 2: Free form')
     parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
 
@@ -835,7 +838,7 @@ if __name__ == "__main__":
         print(config)
         if args.structure == StructureType.Bands:
             config += "/neat_configs/bands.txt"
-        elif args.structure == StructureType.Circles:
+        elif args.structure == StructureType.CirclesRotation:
             config += "/neat_configs/circles.txt"
         else :
             config += "/neat_configs/default.txt"
