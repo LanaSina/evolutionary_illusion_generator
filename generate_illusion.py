@@ -475,6 +475,8 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 
                 # limit values to frame
                 r = min(r_total, y_res/2)
+                # it reverses one time out of 2
+                remainder = int(r/r_len)
                 # it repeats every r_len
                 r = r % r_len
                 # normalize
@@ -499,6 +501,9 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                     # focus on 1 small pattern
                     theta = theta % (math.pi/6.0)
 
+                if remainder%2 == 1:
+                    r = -r
+                    
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
 
