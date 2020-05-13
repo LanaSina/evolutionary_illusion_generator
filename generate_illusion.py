@@ -1,8 +1,8 @@
 import argparse
-#vfrom chainer_prednet.PredNet.call_prednet import test_prednet
-# from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
+from chainer_prednet.PredNet.call_prednet import test_prednet
+from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 # when import eandomly does not work
-from chainer_prednet import *
+# from chainer_prednet import *
 
 import cv2
 import csv
@@ -97,8 +97,8 @@ def direction_ratio(vectors, limits = None):
 def rotation_symmetry_score(vectors, limits = None):
 
     # fill matrix of vectors
-    rotated_vectors = np.zeros((length(vectors), 4))
-    distances = np.zeros((length(vectors)))
+    rotated_vectors = np.zeros((len(vectors), 4))
+    distances = np.zeros((len(vectors)))
     count = 0
     for v in vectors:
         distance = np.sqrt(v[0]*v[0] + v[1]*v[1])
@@ -110,14 +110,19 @@ def rotation_symmetry_score(vectors, limits = None):
         distances[count] = distance
         count = count+1
 
+
+    if(count < 2):
+        return 0
+
     # remove everything beyond count
     rotated_vectors = rotated_vectors[:count, :]
-    distances = distances[:count, :]
+    distances = distances[:count]
  
 
     # normalise vectors
     norms = np.sqrt(rotated_vectors[:,2]*rotated_vectors[:,2] + rotated_vectors[:,3]*rotated_vectors[:,3])
-    rotated_vectors[:,2:3] = rotated_vectors[:,2:3]/norms
+    rotated_vectors[:,2] = rotated_vectors[:,2]/norms
+    rotated_vectors[:,3] = rotated_vectors[:,3]/norms
 
     # rotate vectors clockwise to x axis
     # new_x = cos(a)vx + sin(a)vy, new_y = cos(a)vx - sin(a)vy
@@ -718,7 +723,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         score_strength = strength_number(good_vectors)
                         score_d = score_direction*score_strength
 
-                    elif structure == StructureType.CirclesRotations:
+                    elif structure == StructureType.CirclesRotation:
                         # get tangent scores
                         score_direction = 0
                         # limits = [0, h/2]
@@ -726,7 +731,9 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         # score_direction = score_direction + abs(dir_ratio[1])
                         temp = h/(2*3)
                         limits = [temp*2, temp*3]
-                        score_direction = rotation_symmetry_score(good_vectors, )
+                        score_direction = rotation_symmetry_score(good_vectors, limits)
+                        score_strength = strength_number(good_vectors)
+                        score_direction = score_direction*min(1,score_strength)
 
 
                         #if abs(dir_ratio[1]) > 0.5:

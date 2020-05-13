@@ -1,7 +1,7 @@
 [NEAT]
-no_fitness_termination = True
+no_fitness_termination = False
 fitness_criterion     = mean
-fitness_threshold     = 3.9
+fitness_threshold     = 0.3
 pop_size              = 5
 reset_on_extinction   = False
 
