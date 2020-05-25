@@ -65,11 +65,14 @@ def direction_ratio(vectors, limits = None):
     mean_ratio = 0
     count = 0
     orientation = 0
-    # make sure that all vectors are on x axis
+
     for v in vectors:
+        # skip vectors that are outside the limits
         if not limits is None:
             if (v[1]<limits[0]) or (v[1]>limits[1]):
                 continue
+
+        # calculate x axis ratio
         # x length divided by norm
         norm_v = np.sqrt(v[2]*v[2] + v[3]*v[3])
         ratio = v[2]/norm_v
