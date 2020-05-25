@@ -436,19 +436,43 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
     num_points = x_res*y_res
    
     if structure == StructureType.Bands:
-        y_rep = 5
+        y_rep = 3
         y_len = int(y_res/y_rep) 
         sc = scaling/y_rep
         a = np.linspace(-1*sc, sc, num = y_len)
         y_range = np.tile(a, y_rep)
-        x_range = np.linspace(-1*scaling, scaling, num = x_res)
+       # x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
+        x_rep = 5
+        x_len = int(x_res/x_rep) 
+        sc = scaling/x_rep
+        a = np.linspace(-1*sc, sc, num = x_len)
+        x_range = np.tile(a, x_rep)
+        # reverse the x axis 
+        # todo: ,1 not needed
         x_reverse = np.ones((y_res, 1))
-        start = 0
+        start = y_len
+        padding = 5
         while start<y_res:
-            stop = min(y_res, start+y_len)
+            # keep some white space
+            # top
+            m_start = max(0,start-padding)
+            n_start = min(start + padding, y_res)
+            x_reverse[m_start:n_start] = np.zeros((n_start-m_start,1))
+            y_range[m_start:n_start] = np.zeros((n_start-m_start))
+
+            stop = min(y_res, n_start+y_len)
             x_reverse[start:stop] =  -x_reverse[start:stop]
+
+            # bottom
+            m_start = max(stop - padding, 0) #max(0,start-padding)
+            n_start = min(stop + padding, y_res)
+            x_reverse[m_start:n_start] = np.zeros((n_start-m_start,1))
+            y_range[m_start:n_start] = np.zeros((n_start-m_start))
+
             start = start+2*y_len
+
+        #print("x_reverse", x_reverse)
 
         x_mat = np.matmul(x_reverse, x_range.reshape((1, x_res)))
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
@@ -791,29 +815,16 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         # get tangent scores
                         score_direction = 0
                         # limits = [0, h/2]
-                        # dir_ratio =  tangent_ratio(good_vectors, limits)                    
-                        # score_direction = score_direction + abs(dir_ratio[1])
                         temp = h/(2*3)
                         limits = [temp*2, temp*3]
                         score_direction = rotation_symmetry_score(good_vectors, limits)
                         score_strength = strength_number(good_vectors)
                         score_direction = score_direction*min(1,score_strength)
 
-
-                        #if abs(dir_ratio[1]) > 0.5:
-                            # bonus for strength
-                            # score_strength = strength_number(good_vectors)
-                            # score_direction = score_direction + min(1,score_strength)
-                            # bonus for number
-                            # score_direction = score_direction + min(1,len(good_vectors)/60)
-
                         score_d = score_direction 
 
                     else:
                         score_d = inside_outside_score(good_vectors, w, h)
-
-                    # divergence_convergence_score(good_vectors, w, h)
-
                     score = score + score_d
 
                 if score>final_score:
