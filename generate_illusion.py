@@ -92,6 +92,46 @@ def direction_ratio(vectors, limits = None):
 
     return [orientation, mean_ratio]
 
+# calcuates the symmetry on the middle axis
+def horizontal_symmetry_score(vectors, limits = [160,120]):
+    # print(vectors)
+    mean_ratio = 0
+    count = 0
+    orientation = 0
+    middle = int(limits[1]/2)
+
+    # matrix of mirrored vectors
+    mirrored_vectors = np.zeros((len(vectors), 2))
+
+    count = 0
+    for v in vectors:
+        # skip vectors that are outside the limits
+        if not limits is None:
+            if (v[1]<limits[0]) or (v[1]>limits[1]):
+                continue
+
+        # normalize the vectors to offset model biases
+        normalized_v = v[2:3] / np.sqrt(v[2]*v[2] + v[3]*v[3])
+
+        if (v[1]<middle){
+            mirrored_vectors[count] = normalized_v
+        } else {
+            mirrored_vectors[count] = -normalized_v
+        }
+
+        count = count+1
+
+    # remove everything beyond count
+    mirrored_vectors = mirrored_vectors[:count, :]
+
+    var_x = np.var(mirrored_vectors[:,2])
+    var_y = np.var(mirrored_vectors[:,3])
+
+    # max var is 1
+    score = 1 - (var_x + var_y)/2
+
+    return score
+
 
 # rotate all vectors to align their origin on x axis
 # calculate the mean and variance of normalized vectors
@@ -436,7 +476,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
     num_points = x_res*y_res
    
     if structure == StructureType.Bands:
-        y_rep = 3
+        y_rep = 4
         y_len = int(y_res/y_rep) 
         sc = scaling/y_rep
         a = np.linspace(-1*sc, sc, num = y_len)
@@ -720,15 +760,6 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
 
-            # save grayscale image
-            # bw_image =  image.convert('L') 
-            # bw_image =  bw_image.convert('RGB')
-            # image_name = output_dir + "images/" + str(index).zfill(10) + "_bw.png"
-            # bw_image.save(image_name, "PNG")
-
-            # images_list[index] = image_name
-            # repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
-            
             j = j+1
         i = i + 1
 
@@ -788,28 +819,30 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                         score_direction = 0
                         discord = 0
                         orientation = 0
-                        while y<h:
-                            limits = [y, y+step]
-                            dir_ratio =  direction_ratio(good_vectors, limits)
-                            #check mirroring
-                            if(count==1):
-                                if not(orientation>0 and dir_ratio[0]<0):
-                                    score_direction = 0
-                                    break
-                            orientation = dir_ratio[0]
+                        # while y<h:
+                        #     limits = [y, y+step]
+                        #     dir_ratio =  direction_ratio(good_vectors, limits)
+                        #     #check mirroring
+                        #     if(count==1):
+                        #         if not(orientation>0 and dir_ratio[0]<0):
+                        #             score_direction = 0
+                        #             break
+                        #     orientation = dir_ratio[0]
 
-                            factor = 1
-                            if count % 2 == 1:
-                                factor = -1
-                            score_direction = score_direction + factor*dir_ratio[1]
+                        #     factor = 1
+                        #     if count % 2 == 1:
+                        #         factor = -1
+                        #     score_direction = score_direction + factor*dir_ratio[1]
 
-                            y = y + step
-                            count = count + 1
+                        #     y = y + step
+                        #     count = count + 1
+                        # score_direction = score_direction / stripes
+
+                        score_direction = horizontal_symmetry_score(good_vectors, [0, step*2])
                         
-                        score_direction = score_direction / stripes
                         # bonus for strength
                         score_strength = strength_number(good_vectors)
-                        score_d = score_direction*score_strength
+                        score_d = score_direction*min(1,score_strength)
 
                     elif structure == StructureType.Circles:
                         # get tangent scores
