@@ -113,19 +113,19 @@ def horizontal_symmetry_score(vectors, limits = [160,120]):
         # normalize the vectors to offset model biases
         normalized_v = v[2:3] / np.sqrt(v[2]*v[2] + v[3]*v[3])
 
-        if (v[1]<middle){
+        if (v[1]<middle):
             mirrored_vectors[count] = normalized_v
-        } else {
+        else:
             mirrored_vectors[count] = -normalized_v
-        }
+        
 
         count = count+1
 
     # remove everything beyond count
     mirrored_vectors = mirrored_vectors[:count, :]
 
-    var_x = np.var(mirrored_vectors[:,2])
-    var_y = np.var(mirrored_vectors[:,3])
+    var_x = np.var(mirrored_vectors[:,0])
+    var_y = np.var(mirrored_vectors[:,1])
 
     # max var is 1
     score = 1 - (var_x + var_y)/2
@@ -477,10 +477,13 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
    
     if structure == StructureType.Bands:
         y_rep = 4
+        padding = 10
+        total_padding = padding*(y_rep-1)
         y_len = int(y_res/y_rep) 
         sc = scaling/y_rep
-        a = np.linspace(-1*sc, sc, num = y_len)
-        y_range = np.tile(a, y_rep)
+        a = np.linspace(-1*sc, sc, num = y_len-padding)
+        to_tile = np.concatenate(np.array(a), 1.0*np.zeros((padding)))
+        y_range = np.tile(to_tile, y_rep)
        # x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
         x_rep = 5
@@ -492,27 +495,24 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         # todo: ,1 not needed
         x_reverse = np.ones((y_res, 1))
         start = y_len
-        padding = 5
         while start<y_res:
             # keep some white space
-            # top
+            # top of previous band
             m_start = max(0,start-padding)
-            n_start = min(start + padding, y_res)
-            x_reverse[m_start:n_start] = np.zeros((n_start-m_start,1))
-            y_range[m_start:n_start] = np.zeros((n_start-m_start))
+            x_reverse[m_start:start] = np.zeros((start-m_start,1))
+            #y_range[m_start:start] = np.zeros((start-m_start))
 
-            stop = min(y_res, n_start+y_len)
-            x_reverse[start:stop] =  -x_reverse[start:stop]
-
-            # bottom
+            # bottom of current band
+            stop = min(y_res, start+y_len)
             m_start = max(stop - padding, 0) #max(0,start-padding)
-            n_start = min(stop + padding, y_res)
-            x_reverse[m_start:n_start] = np.zeros((n_start-m_start,1))
-            y_range[m_start:n_start] = np.zeros((n_start-m_start))
+            x_reverse[m_start:stop] = np.zeros((stop-m_start,1))
+            #y_range[m_start:stop] = np.zeros((stop-m_start))
+            x_reverse[start:stop] =  -x_reverse[start:stop]
+            y_range[start:stop] =  -y_range[start:stop]
+
+            
 
             start = start+2*y_len
-
-        #print("x_reverse", x_reverse)
 
         x_mat = np.matmul(x_reverse, x_range.reshape((1, x_res)))
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
