@@ -16,3 +16,19 @@ Open illusion_generation.ipynb in Colab: https://colab.research.google.com/noteb
 
 Run each cell as needed.
 
+## Results
+
+EIGen outputs both the current best pattern and the expected motion vectors.
+
+![EIGen structure](_circle.png)
+![EIGen structure](_vectors.png)
+
+You can also choose bands:
+
+![EIGen structure](_bands.png)
+
+The algorithm does not stop automatically. Stop it when you are happy with the results or when it's stagnating.
+To increase the illusory motion, you can copy-paste the best image several times and flip or mirror it as below:
+
+![EIGen structure](extended.png)
+

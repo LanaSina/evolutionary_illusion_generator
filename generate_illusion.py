@@ -32,11 +32,11 @@ class StructureType(IntEnum):
 
 
 # returns ratio and vectors that are not unplausibly big
-def plausibility_ratio(vectors):
+def plausibility_ratio(vectors, limit):
     r = []
     for vector in vectors:
         norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-        if norm> 0.3: # or norm==0: 
+        if norm> limit:
             continue
         r.append(vector)
 
@@ -93,7 +93,7 @@ def direction_ratio(vectors, limits = None):
     return [orientation, mean_ratio]
 
 # calcuates the symmetry on the middle axis
-def horizontal_symmetry_score(vectors, limits = [160,120]):
+def horizontal_symmetry_score(vectors, limits = [0,60]):
     # print(vectors)
     mean_ratio = 0
     count = 0
@@ -106,29 +106,33 @@ def horizontal_symmetry_score(vectors, limits = [160,120]):
     count = 0
     for v in vectors:
         # skip vectors that are outside the limits
-        if not limits is None:
-            if (v[1]<limits[0]) or (v[1]>limits[1]):
-                continue
+        if (v[1]<limits[0]) or (v[1]>limits[1]):
+            continue
 
         # normalize the vectors to offset model biases
-        normalized_v = v[2:3] / np.sqrt(v[2]*v[2] + v[3]*v[3])
+        normalized_v = v / np.sqrt(v[2]*v[2] + v[3]*v[3])
 
         if (v[1]<middle):
-            mirrored_vectors[count] = normalized_v
+            mirrored_vectors[count] = normalized_v[2:3]
         else:
-            mirrored_vectors[count] = -normalized_v
+            mirrored_vectors[count] = [-normalized_v[2],normalized_v[3]]
         
-
         count = count+1
+
+    if (count==0):
+        return 0
 
     # remove everything beyond count
     mirrored_vectors = mirrored_vectors[:count, :]
 
     var_x = np.var(mirrored_vectors[:,0])
-    var_y = np.var(mirrored_vectors[:,1])
+    mean_x = abs(np.mean(mirrored_vectors[:,0]))
+    mean_y = abs(np.mean(mirrored_vectors[:,1]))
 
     # max var is 1
-    score = 1 - (var_x + var_y)/2
+    score = ((1 - var_x) + mean_x + (1-mean_y))/3
+    # print("score", score)
+
 
     return score
 
@@ -482,11 +486,11 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         y_len = int(y_res/y_rep) 
         sc = scaling/y_rep
         a = np.linspace(-1*sc, sc, num = y_len-padding)
-        to_tile = np.concatenate(np.array(a), 1.0*np.zeros((padding)))
+        to_tile = np.concatenate((a,np.zeros((padding))))
         y_range = np.tile(to_tile, y_rep)
        # x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
-        x_rep = 5
+        x_rep = 10
         x_len = int(x_res/x_rep) 
         sc = scaling/x_rep
         a = np.linspace(-1*sc, sc, num = x_len)
@@ -508,7 +512,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
             x_reverse[m_start:stop] = np.zeros((stop-m_start,1))
             #y_range[m_start:stop] = np.zeros((stop-m_start))
             x_reverse[start:stop] =  -x_reverse[start:stop]
-            y_range[start:stop] =  -y_range[start:stop]
+            # y_range[start:stop] =  -y_range[start:stop]
 
             
 
@@ -779,11 +783,8 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     for input_image in images_list:
         index_0 = int(i*(repeat/skip)+ repeat-1)
         index_1 = index_0+1
-        #"debug/0000000004.png" "debug/0000000005_extended.png"
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
         prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
-        #print(prediction_0, prediction_1)
-        # results = lucas_kanade(input_image, prediction_image_path, output_dir+"/flow/", save=True, verbose = 0)
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
@@ -792,7 +793,6 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         i = i + 1
 
     # calculate score
-    #radius_limits = [20,50]
     scores = [None] * len(population)
     for i in range(0, len(population)):
         final_score = -100
@@ -802,67 +802,54 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         for j in range(0,int(2/s_step)):
             index = i*pertype_count+j
             score = 0
-            if(len(original_vectors[index])>0):
-                # bonus
-                # score = score + 0.1
-                ratio = plausibility_ratio(original_vectors[index]) #TODO might not be needed?
+            score_d = 0
+
+            if structure == StructureType.Bands:
+                ratio = plausibility_ratio(original_vectors[index], 0.15) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
+                    y = 0                
+                    count = 0
+                    stripes = 4
+                    step = h/stripes
+                    score_direction = 0
+                    discord = 0
+                    orientation = 0
 
-                    if structure == StructureType.Bands:
-                        y = 0                
-                        count = 0
-                        stripes = 5
-                        step = h/stripes
-                        score_direction = 0
-                        discord = 0
-                        orientation = 0
-                        # while y<h:
-                        #     limits = [y, y+step]
-                        #     dir_ratio =  direction_ratio(good_vectors, limits)
-                        #     #check mirroring
-                        #     if(count==1):
-                        #         if not(orientation>0 and dir_ratio[0]<0):
-                        #             score_direction = 0
-                        #             break
-                        #     orientation = dir_ratio[0]
+                    score_direction = horizontal_symmetry_score(good_vectors, [0, step*2])
+                    
+                    # bonus for strength
+                    #score_strength = strength_number(good_vectors)
+                    score_d = score_direction#*min(1,score_strength)
 
-                        #     factor = 1
-                        #     if count % 2 == 1:
-                        #         factor = -1
-                        #     score_direction = score_direction + factor*dir_ratio[1]
+            elif structure == StructureType.Circles:
+                ratio = plausibility_ratio(original_vectors[index], 0.3) 
+                score_0 = ratio[0]
+                good_vectors = ratio[1]
 
-                        #     y = y + step
-                        #     count = count + 1
-                        # score_direction = score_direction / stripes
+                if(len(good_vectors)>0): 
+                    # get tangent scores
+                    score_direction = 0
+                    # limits = [0, h/2]
+                    temp = h/(2*3)
+                    limits = [temp*2, temp*3]
+                    score_direction = rotation_symmetry_score(good_vectors, limits)
+                    score_strength = strength_number(good_vectors)
+                    score_direction = score_direction*min(1,score_strength)
 
-                        score_direction = horizontal_symmetry_score(good_vectors, [0, step*2])
-                        
-                        # bonus for strength
-                        score_strength = strength_number(good_vectors)
-                        score_d = score_direction*min(1,score_strength)
+                    score_d = score_direction 
 
-                    elif structure == StructureType.Circles:
-                        # get tangent scores
-                        score_direction = 0
-                        # limits = [0, h/2]
-                        temp = h/(2*3)
-                        limits = [temp*2, temp*3]
-                        score_direction = rotation_symmetry_score(good_vectors, limits)
-                        score_strength = strength_number(good_vectors)
-                        score_direction = score_direction*min(1,score_strength)
+            else:
+                score_d = inside_outside_score(good_vectors, w, h)
+            
+            
+            score = score + score_d
 
-                        score_d = score_direction 
-
-                    else:
-                        score_d = inside_outside_score(good_vectors, w, h)
-                    score = score + score_d
-
-                if score>final_score:
-                    final_score = score
-                    temp_index = index
+            if score>final_score:
+                final_score = score
+                temp_index = index
         
         m =  score/pertype_count
         scores[i] =[i, m]
