@@ -32,3 +32,17 @@ To increase the illusory motion, you can copy-paste the best image several times
 
 ![expanded](expanded.png)
 
+## I don't see the illusion!!! You're a hack!!!
+
+Not everyone can see illusions. For an average motion illusion, ~25% of people might report seeing something.
+Sometimes they are strong, sometimes they are weak. Sometimes the direction reverse depending if your lights are bright or if it's dark. Sometimes you get used to an illusion and it stops working.
+
+The best way to see it is, in my experience:
+
+	Be in a brightly lit environment, with the screen light on max
+
+	Let your eyes wander on the screen or fixate a point in the distance
+
+	Don't stare at the image directly!
+
+Good luck!
