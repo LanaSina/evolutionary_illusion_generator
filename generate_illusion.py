@@ -727,7 +727,7 @@ def rgb2gray(rgb):
 def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3, best_dir = "."):
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
-    repeat = 5
+    repeat = 20
     w = 160
     h = 120
     half_h = int(h/2)
@@ -784,8 +784,10 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         index_0 = int(i*(repeat/skip)+ repeat-1)
         index_1 = index_0+1
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
-        prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
-        results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0)
+        prediction_1 = prediction_dir + str(index_1).zfill(10) + ".png"
+        final_name = "flow/" + str(i).zfill(10) + "_extended.png"
+        print(prediction_0, " vs ", prediction_1)
+        results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, name = final_name)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
         else:
