@@ -10,7 +10,7 @@ import neat
 import numpy as np
 from optical_flow.optical_flow import lucas_kanade
 import os
-from PIL import Image
+from PIL import Image, ImageOps
 from pytorch_neat.pytorch_neat.cppn import create_cppn
 from pytorch_neat.pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
@@ -878,13 +878,15 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     # create enhanced image
     image = Image.open(images_list[best_illusion])
     center = [(int) (w/2), (int) (h/2)]
-    image = image.crop((center[0]-center[1], 0, h, center[0]+center[1]))
+    crop = (center[0]-center[1], 0, center[0]+center[1], h)
+    print(crop)
+    image = image.crop(crop)
     back_im = Image.new('RGB', (h*2, h*2))
     back_im.paste(image, (0, 0))
-    back_im.paste(image, (h, 0))
-    back_im.paste(image, (0, h))
+    back_im.paste(ImageOps.mirror(image), (h, 0))
+    back_im.paste(ImageOps.mirror(image), (0, h))
     back_im.paste(image, (h, h))
-    image_name = best_dir + "enhanced.png"
+    image_name = best_dir + "/enhanced.png"
     back_im.save(image_name)
 
 
