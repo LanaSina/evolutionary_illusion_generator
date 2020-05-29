@@ -806,7 +806,6 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
         prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
         save_name = output_dir + "/flow/" + str(i).zfill(10) + ".png"
-        print(prediction_0, " vs ", prediction_1, "save", save_name)
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
