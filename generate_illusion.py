@@ -41,17 +41,29 @@ def plausibility_ratio(vectors, limit):
     ratio = len(r)/len(vectors)
     return [ratio, r]
 
-#returns mean of vectors norms
-def strength_number(vectors):
-    sum_v = 0
-    total_v = 0
+# returns mean of vectors norms weighted by their variances
+# low variance = good
+def strength_number(vectors, max_norm):
+    v = np.asarray(vectors)
+    mx = np.mean(abs(v[:,2]))
+    my = np.mean(abs(v[:,3]))
 
-    for vector in vectors:
-        norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-        sum_v = sum_v + norm
-        total_v = total_v +1
+    norms = np.sqrt(v[:,2]*v[:,2] + v[:,3]*v[:,3])
+    v = np.var(norms)
+    score = mx/max_norm # could be 1
+    score = score * (1- min(v,1))
+    return score
+
+
+    # sum_v = 0
+    # total_v = 0
+
+    # for vector in vectors:
+    #     norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
+    #     sum_v = sum_v + norm
+    #     total_v = total_v +1
     
-    return sum_v/total_v
+    # return sum_v/total_v
 
 
 # returns [a,b]
@@ -144,13 +156,15 @@ def rotation_symmetry_score(vectors, limits = None):
     rotated_vectors = np.zeros((len(vectors), 4))
     distances = np.zeros((len(vectors)))
     count = 0
+    center = [160/2, 120/2]
     for v in vectors:
-        distance = np.sqrt(v[0]*v[0] + v[1]*v[1])
+        vc = [v[0]-center[0], v[1]-center[1]]
+        distance = np.sqrt(vc[0]*vc[0] + vc[1]*vc[1])
         if not limits is None:
-            if (distance<limits[0]) or (distance>limits[1]):
+            if (distance<limits[0]) or (distance>limits[1]) or distance==0:
                 continue
 
-        rotated_vectors[count] = v
+        rotated_vectors[count] =[vc[0],vc[1],v[2],v[3]]
         distances[count] = distance
         count = count+1
 
@@ -161,7 +175,6 @@ def rotation_symmetry_score(vectors, limits = None):
     # remove everything beyond count
     rotated_vectors = rotated_vectors[:count, :]
     distances = distances[:count]
- 
 
     # normalise vectors
     norms = np.sqrt(rotated_vectors[:,2]*rotated_vectors[:,2] + rotated_vectors[:,3]*rotated_vectors[:,3])
@@ -169,19 +182,29 @@ def rotation_symmetry_score(vectors, limits = None):
     rotated_vectors[:,3] = rotated_vectors[:,3]/norms
 
     # rotate vectors clockwise to x axis
-    # new_x = cos(a)vx + sin(a)vy, new_y = cos(a)vx - sin(a)vy
+    # new_x = cos(a)x + sin(a)y, new_y = cos(a)x - sin(a)y
     # cos(a) = x/dist, sin a = y/dist
-    # new_x = (x*vx + y*vy)/dist
-    # new y = (x*vx - y*vy)/dist
-    # distances = np.sqrt(rotated_vectors[:,0]*rotated_vectors[:,0] + rotated_vectors[:,1]*rotated_vectors[:,1])
-    rotated_vectors[:,2] =  (rotated_vectors[:,0]*rotated_vectors[:,2] + rotated_vectors[:,1]*rotated_vectors[:,3])/distances
-    rotated_vectors[:,3] =  (rotated_vectors[:,0]*rotated_vectors[:,2] - rotated_vectors[:,1]*rotated_vectors[:,3])/distances
+    # new_y = -sin(a)x + cos(a)y
+    # vector origin is going to be [dist,0]
+    # vector coordinates
+    x_1 = rotated_vectors[:,0] + rotated_vectors[:,2]
+    y_1 = rotated_vectors[:,1] + rotated_vectors[:,3]
+    rx_1 = (x_1*rotated_vectors[:,0] + y_1*rotated_vectors[:,1])/distances
+    ry_1 = (-x_1*rotated_vectors[:,1] + y_1*rotated_vectors[:,0])/distances
 
-    var_x = np.var(rotated_vectors[:,2])
-    var_y = np.var(rotated_vectors[:,3])
+
+    r_v = np.array([rx_1-distances, ry_1])
+    #print("r_v", r_v)
+    var_x = np.var(r_v[:,0])
+    var_y = np.var(r_v[:,1])
+
+    # print("variances")
+    # print(var_x)
+    # print(var_y)
 
     # max var is 1
-    score = 1 - (var_x + var_y)/2
+    score = (1 - var_x)*(1 - var_x) + (1 - var_y)*(1 - var_y)
+    score = score/2
     return score
 
 
@@ -836,7 +859,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     # temp = h/(2*3)
                     # limits = [temp*2, temp*3]
                     score_direction = rotation_symmetry_score(good_vectors, limits)
-                    score_strength = strength_number(good_vectors)/max_strenght
+                    score_strength = strength_number(good_vectors,max_strenght)
                     score_d = 0.7*score_direction + 0.3*score_strength
                     print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
             else:
