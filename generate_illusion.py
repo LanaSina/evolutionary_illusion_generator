@@ -1,8 +1,6 @@
 import argparse
 from chainer_prednet.PredNet.call_prednet import test_prednet
 from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
-# when import eandomly does not work
-# from chainer_prednet import *
 
 import cv2
 import csv
@@ -59,7 +57,6 @@ def strength_number(vectors):
 # returns [a,b]
 # a = 1 if vectors rather aligned on x to the right;  -1 if to the left
 # b = mean of projection on x axis (normalised)
-
 def direction_ratio(vectors, limits = None):
     # print(vectors)
     mean_ratio = 0
@@ -784,9 +781,9 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         index_0 = int(i*(repeat/skip)+ repeat-1)
         index_1 = index_0+1
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
-        prediction_1 = prediction_dir + str(index_1).zfill(10) + ".png"
-        save_name = "flow/" + str(i).zfill(10) + "_extended.png"
-        print(prediction_0, " vs ", prediction_1)
+        prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+        save_name = output_dir + "/flow/" + str(i).zfill(10) + ".png"
+        print(prediction_0, " vs ", prediction_1, "save", save_name)
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
@@ -827,22 +824,21 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles:
-                ratio = plausibility_ratio(original_vectors[index], 0.3) 
+                max_strenght = 0.3
+                ratio = plausibility_ratio(original_vectors[index], max_strenght) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
                     # get tangent scores
                     score_direction = 0
-                    # limits = [0, h/2]
-                    temp = h/(2*3)
-                    limits = [temp*2, temp*3]
+                    limits = [0, h/2]
+                    # temp = h/(2*3)
+                    # limits = [temp*2, temp*3]
                     score_direction = rotation_symmetry_score(good_vectors, limits)
-                    score_strength = strength_number(good_vectors)
-                    score_direction = score_direction*min(1,score_strength)
-
-                    score_d = score_direction 
-
+                    score_strength = strength_number(good_vectors)/max_strenght
+                    score_d = 0.7*score_direction + 0.3*score_strength
+                    print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
@@ -876,9 +872,20 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
     index = int(best_illusion*(repeat/skip) + repeat-1)
-    image_name = output_dir + "/flow/" + str(index).zfill(10) + ".png"
+    image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
+    # create enhanced image
+    image = Image.open(images_list[best_illusion])
+    center = [(int) (w/2), (int) (h/2)]
+    image = image.crop((center[0]-center[1], 0, h, center[0]+center[1]))
+    back_im = Image.new('RGB', (h*2, h*2))
+    back_im.paste(image, (0, 0))
+    back_im.paste(image, (h, 0))
+    back_im.paste(image, (0, h))
+    back_im.paste(image, (h, h))
+    image_name = best_dir + "enhanced.png"
+    back_im.save(image_name)
 
 
 def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = None):

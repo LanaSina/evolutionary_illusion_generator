@@ -1,5 +1,5 @@
 [NEAT]
-no_fitness_termination = False
+no_fitness_termination = True
 fitness_criterion     = mean
 fitness_threshold     = 0.3
 pop_size              = 5
