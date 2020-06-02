@@ -845,7 +845,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     #score_strength = strength_number(good_vectors)
                     score_d = score_direction#*min(1,score_strength)
 
-            elif structure == StructureType.Circles:
+            elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
                 max_strenght = 0.3
                 ratio = plausibility_ratio(original_vectors[index], max_strenght) 
                 score_0 = ratio[0]
