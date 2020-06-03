@@ -1,14 +1,12 @@
 import argparse
 from chainer_prednet.PredNet.call_prednet import test_prednet
 from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
-
-import cv2
 import csv
 from enum import IntEnum
 import math
 import neat
 import numpy as np
-from optical_flow.optical_flow import lucas_kanade
+from optical_flow.optical_flow import lucas_kanade, draw_tracks, save_data
 import os
 from PIL import Image, ImageOps
 from pytorch_neat.pytorch_neat.cppn import create_cppn
@@ -150,7 +148,7 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
 # calculate the mean and variance of normalized vectors
 # returns a high score if the variance is low (ie the vectors are symmetric)
 # limits = radius limits
-def rotation_symmetry_score(vectors, limits = None):
+def rotation_symmetry_score(vectors, limits = None, original_filename="temp.png"):
 
     # fill matrix of vectors
     rotated_vectors = np.zeros((len(vectors), 4))
@@ -158,6 +156,7 @@ def rotation_symmetry_score(vectors, limits = None):
     count = 0
     center = [160/2, 120/2]
     for v in vectors:
+        # change coordinates to center
         vc = [v[0]-center[0], v[1]-center[1]]
         distance = np.sqrt(vc[0]*vc[0] + vc[1]*vc[1])
         if not limits is None:
@@ -181,26 +180,48 @@ def rotation_symmetry_score(vectors, limits = None):
     rotated_vectors[:,2] = rotated_vectors[:,2]/norms
     rotated_vectors[:,3] = rotated_vectors[:,3]/norms
 
+    # for debugging
+    # output_dir = "temp/normalized/"
+    # if not os.path.exists(output_dir + "csv"):
+    #     os.makedirs(output_dir+"csv")
+    #     print("created", output_dir)
+
+    # image = np.zeros((120, 160, 3))
+    # n_v = np.array([rotated_vectors[:,0] + center[0], rotated_vectors[:,1]+center[1], rotated_vectors[:,2], rotated_vectors[:,3]])
+    # n_v = np.transpose(n_v)
+    # image = draw_tracks(image, n_v, vector_scale=10)
+    # print(original_filename)
+    # save_data(image, n_v, output_dir, original_filename, verbose = 1, save_name="")
+
+
     # rotate vectors clockwise to x axis
-    # new_x = cos(a)x + sin(a)y, new_y = cos(a)x - sin(a)y
+    # new_x = cos(a)x + sin(a)y, new_y = cos(a)y - sin(a)x
     # cos(a) = x/dist, sin a = y/dist
     # new_y = -sin(a)x + cos(a)y
     # vector origin is going to be [dist,0]
-    # vector coordinates
+    # vector end coordinates
     x_1 = rotated_vectors[:,0] + rotated_vectors[:,2]
     y_1 = rotated_vectors[:,1] + rotated_vectors[:,3]
+
     rx_1 = (x_1*rotated_vectors[:,0] + y_1*rotated_vectors[:,1])/distances
     ry_1 = (-x_1*rotated_vectors[:,1] + y_1*rotated_vectors[:,0])/distances
+    r_v = np.array([rx_1-distances, ry_1]).transpose()
 
-
-    r_v = np.array([rx_1-distances, ry_1])
-    #print("r_v", r_v)
     var_x = np.var(r_v[:,0])
     var_y = np.var(r_v[:,1])
 
-    # print("variances")
-    # print(var_x)
-    # print(var_y)
+    # image = np.zeros((120, 160, 3))
+    # # back to cv2 coordinates
+    # n_v = np.array([distances + center[0], np.zeros((len(distances)))+center[1], rx_1-distances, ry_1])
+    # n_v = np.transpose(n_v)
+
+    # output_dir = "temp/rotated/"
+    # if not os.path.exists(output_dir + "csv"):
+    #     os.makedirs(output_dir+"csv")
+    #     print("created", output_dir)
+
+    # image = draw_tracks(image, n_v, vector_scale=10)
+    # save_data(image, n_v, output_dir, original_filename, verbose = 1, save_name="")
 
     # max var is 1
     score = (1 - var_x)*(1 - var_x) + (1 - var_y)*(1 - var_y)
@@ -805,6 +826,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
         index_1 = index_0+1
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
         prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+
         save_name = output_dir + "/flow/" + str(i).zfill(10) + ".png"
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
         if results["vectors"]:
@@ -846,8 +868,8 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strenght = 0.3
-                ratio = plausibility_ratio(original_vectors[index], max_strenght) 
+                max_strength = 0.6
+                ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
 
@@ -857,8 +879,8 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     limits = [0, h/2]
                     # temp = h/(2*3)
                     # limits = [temp*2, temp*3]
-                    score_direction = rotation_symmetry_score(good_vectors, limits)
-                    score_strength = strength_number(good_vectors,max_strenght)
+                    score_direction = rotation_symmetry_score(good_vectors, limits, images_list[index])
+                    score_strength = strength_number(good_vectors,max_strength)
                     score_d = 0.7*score_direction + 0.3*score_strength
                     print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
             else:
