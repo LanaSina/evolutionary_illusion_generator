@@ -20,17 +20,16 @@ Run each cell as needed.
 
 EIGen outputs both the current best pattern and the expected motion vectors.
 
-![circles](_circle.png)
-![vectors](_vectors.png)
+![circles](gallery/centipede.png)
+![vectors](gallery/centipede_vectors.png)
 
-You can also choose bands:
+<img src="gallery/succulents.png"  width="250"> <img src="gallery/00e.png"  width="250"> <img src="gallery/01e.png"  width="250"> <img src="gallery/02e.png"  width="250">
 
-![bands](_bands.png)
+You can also choose a different structure(bands):
+
+![bands](gallery/_bands.png)
 
 The algorithm does not stop automatically. Stop it when you are happy with the results or when it's stagnating.
-To increase the illusory motion, you can copy-paste the best image several times and flip or mirror it as below:
-
-![expanded](expanded.png)
 
 ## I don't see the illusion!!! You're a hack!!!
 
