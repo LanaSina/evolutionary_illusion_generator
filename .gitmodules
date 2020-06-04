@@ -1,7 +1,6 @@
 [submodule "chainer_prednet"]
 	path = chainer_prednet
 	url = https://github.com/LanaSina/chainer_prednet
-	branch = illusion_evolver
 [submodule "optical_flow"]
 	path = optical_flow
 	url = https://github.com/LanaSina/Optical_Flow_Analyzer
