@@ -932,10 +932,11 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
+                    score_strength = strength_number(good_vectors,max_strength)
+                    score_number = min(len(good_vectors),(h*w/5))/(h*w/5)
                     score_s = swarm_score(good_vectors)
                     print("swarm_score", score_s)
-                    score_d = (score_s[0] + score_s[1])/2
-
+                    score_d = 0.2*score_strength + 0.2*score_number+ 0.6*(score_s[0] + score_s[1])/2
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
