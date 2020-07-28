@@ -146,7 +146,9 @@ def swarm_score(vectors):
     norms = np.sqrt(norm_vectors[:,2]*norm_vectors[:,2] + norm_vectors[:,3]*norm_vectors[:,3])
     norm_vectors[:,2] = norm_vectors[:,2]/norms
     norm_vectors[:,3] = norm_vectors[:,3]/norms
-    print("normalized", norm_vectors)
+    #print("normalized", norm_vectors)
+    temp = np.sqrt(norm_vectors[:,2]*norm_vectors[:,2] + norm_vectors[:,3]*norm_vectors[:,3])
+    #print("norms", temp)
     angles = np.arccos(norm_vectors[:,2])
 
     for v_a in norm_vectors:
@@ -154,19 +156,23 @@ def swarm_score(vectors):
         x = norm_vectors[:,0]-v_a[0]
         y = norm_vectors[:,1]-v_a[1]
         # [0 .. 1]
-        distance_factors = abs((np.multiply(x,x) + np.multiply(y,y)-1)/max_distance)
-        print("distance_factors", distance_factors)
+        distance_factors = (np.multiply(x,x) + np.multiply(y,y))
+        distance_factors = distance_factors/(max_distance*max_distance)
+        distance_factors = an_array = np.where(distance_factors > 1, 1, distance_factors)
+        # print("distance_factors", distance_factors)
 
         # vectors orientation
         # alpha = acos(x)
         v_angle = math.acos(v_a[2])
         angle_diff = abs(angles-v_angle)
         angle_diff = angle_diff % 2*math.pi
-        
-        temp = np.multiply(distance_factors,abs((angle_diff/2*math.pi)-1))
-        print("angle_diff ")
-        agreement = agreement + np.sum(temp)/n
-        temp = np.multiply(distance_factors,angle_diff/2*math.pi)
+        angle_diff = angle_diff/(2*math.pi)
+        #print("angle_diff ", angle_diff)
+        temp = np.multiply(distance_factors,abs(angle_diff-1))
+        temp = np.sum(temp)/n
+        #print("temp ", temp)
+        agreement = agreement + temp
+        temp = np.multiply(distance_factors,angle_diff)
         discord = discord + np.sum(temp)/n
 
     result = [agreement/n, discord/n]
