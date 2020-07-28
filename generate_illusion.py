@@ -144,6 +144,43 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
     return score
 
 
+# returns the agreement and disagreement betwen vectors
+def swarm_score(vectors):
+    max_distance = 10 #px
+    agreement = 0
+    discord = 0
+
+    # normalize vectors
+    norm_vectors = numpy.array(vectors) 
+    print("vector array", norm_vectors)
+    norms = np.sqrt(norm_vectors[:,2]*norm_vectors[:,2] + norm_vectors[:,3]*norm_vectors[:,3])
+    norm_vectors[:,2] = norm_vectors[:,2]/norms
+    norm_vectors[:,3] = norm_vectors[:,3]/norms
+    angles = math.acos(norm_vectors[:,2])
+
+    for v_a in norm_vectors:
+        # distance used as factor
+        x = norm_vectors[:,0]-v_a[0]
+        y = norm_vectors[1]-v_a[1]
+        # [0 .. 1]
+        distance_factors = abs(1 - (numpy.multiply(x,x) + numpy.multiply(y,y))/max_distance)
+        print("distance_factors", distance_factors)
+
+        # vectors orientation
+        # alpha = acos(x)
+        v_angle = math.acos(v_a[2])
+        angle_diff = abs(angles-v_angle)
+        angle_diff = angle_diff % 2*math.pi
+        agreement = agreement + numpy.multiply(distance_factors,(1-angle_diff/2*math.pi))
+        discord = discord +  numpy.multiply(distance_factors,angle_diff/2*math.pi)
+
+    result = [agreement/len(vectors), discord/len(vectors)]
+
+    return result
+
+
+
+
 # rotate all vectors to align their origin on x axis
 # calculate the mean and variance of normalized vectors
 # returns a high score if the variance is low (ie the vectors are symmetric)
@@ -166,7 +203,6 @@ def rotation_symmetry_score(vectors, limits = None, original_filename="temp.png"
         rotated_vectors[count] =[vc[0],vc[1],v[2],v[3]]
         distances[count] = distance
         count = count+1
-
 
     if(count < 2):
         return 0
@@ -621,8 +657,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 else:
                     r = -1
 
-               
-
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
         return {"x_mat": x_mat, "y_mat": y_mat}
@@ -677,6 +711,17 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         return {"x_mat": x_mat, "y_mat": y_mat}
 
+    elif structure == StructureType.Free:
+        x_range = np.linspace(-1*scaling, scaling, num = x_res)
+        y_range = np.linspace(-1*scaling, scaling, num = y_res)
+
+
+        y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
+        x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
+
+        return {"x_mat": x_mat, "y_mat": y_mat}
+
+
     return {"input_0": x_mat, "input_1": y_mat, "input_2": r_mat} #, s_mat
 
 def fully_connected(input, out_dim, with_bias = True, mat = None):
@@ -702,6 +747,7 @@ def get_fidelity(input_image_path, prediction_image_path):
     # the two images are
     return 1-err
 
+
 def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
 
     scaling = 10
@@ -710,10 +756,7 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
     out_names = ["r0","g0","b0","r1","g1","b1"]
 
     inputs = create_grid(structure, w, h, scaling)
-    # x_dat, y_dat, r_dat  = create_grid(w, h, scaling)
-    # s_dat = s_val*s_dat
 
-    # if structure == StructureType.Bands:
     leaf_names = ["x","y"]
     x_dat = inputs["x_mat"]
     y_dat = inputs["y_mat"]
@@ -868,7 +911,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strength = 0.6
+                max_strength = 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
@@ -883,6 +926,17 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     score_strength = strength_number(good_vectors,max_strength)
                     score_d = 0.7*score_direction + 0.3*score_strength
                     print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
+
+            elif structure == StructureType.Free:
+                max_strength = 0.4
+                ratio = plausibility_ratio(original_vectors[index], max_strength) 
+                good_vectors = ratio[1]
+
+                if(len(good_vectors)>0): 
+                    swarm = swarm_score(good_vectors)
+                    print("swarm_score", swarm_score)
+                    score_d = (swarm[0] + swarm[1])/2
+
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
