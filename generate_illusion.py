@@ -53,17 +53,6 @@ def strength_number(vectors, max_norm):
     return score
 
 
-    # sum_v = 0
-    # total_v = 0
-
-    # for vector in vectors:
-    #     norm = np.sqrt(vector[2]*vector[2] + vector[3]*vector[3])
-    #     sum_v = sum_v + norm
-    #     total_v = total_v +1
-    
-    # return sum_v/total_v
-
-
 # returns [a,b]
 # a = 1 if vectors rather aligned on x to the right;  -1 if to the left
 # b = mean of projection on x axis (normalised)
@@ -149,21 +138,23 @@ def swarm_score(vectors):
     max_distance = 10 #px
     agreement = 0
     discord = 0
+    n = len(vectors)
 
     # normalize vectors
-    norm_vectors = numpy.array(vectors) 
-    print("vector array", norm_vectors)
+    norm_vectors = np.array(vectors) 
+    # print("vector array", norm_vectors)
     norms = np.sqrt(norm_vectors[:,2]*norm_vectors[:,2] + norm_vectors[:,3]*norm_vectors[:,3])
     norm_vectors[:,2] = norm_vectors[:,2]/norms
     norm_vectors[:,3] = norm_vectors[:,3]/norms
-    angles = math.acos(norm_vectors[:,2])
+    print("normalized", norm_vectors)
+    angles = np.arccos(norm_vectors[:,2])
 
     for v_a in norm_vectors:
         # distance used as factor
         x = norm_vectors[:,0]-v_a[0]
-        y = norm_vectors[1]-v_a[1]
+        y = norm_vectors[:,1]-v_a[1]
         # [0 .. 1]
-        distance_factors = abs(1 - (numpy.multiply(x,x) + numpy.multiply(y,y))/max_distance)
+        distance_factors = abs((np.multiply(x,x) + np.multiply(y,y)-1)/max_distance)
         print("distance_factors", distance_factors)
 
         # vectors orientation
@@ -171,14 +162,16 @@ def swarm_score(vectors):
         v_angle = math.acos(v_a[2])
         angle_diff = abs(angles-v_angle)
         angle_diff = angle_diff % 2*math.pi
-        agreement = agreement + numpy.multiply(distance_factors,(1-angle_diff/2*math.pi))
-        discord = discord +  numpy.multiply(distance_factors,angle_diff/2*math.pi)
+        
+        temp = np.multiply(distance_factors,abs((angle_diff/2*math.pi)-1))
+        print("angle_diff ")
+        agreement = agreement + np.sum(temp)/n
+        temp = np.multiply(distance_factors,angle_diff/2*math.pi)
+        discord = discord + np.sum(temp)/n
 
-    result = [agreement/len(vectors), discord/len(vectors)]
+    result = [agreement/n, discord/n]
 
     return result
-
-
 
 
 # rotate all vectors to align their origin on x axis
@@ -933,9 +926,9 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
-                    swarm = swarm_score(good_vectors)
-                    print("swarm_score", swarm_score)
-                    score_d = (swarm[0] + swarm[1])/2
+                    score_s = swarm_score(good_vectors)
+                    print("swarm_score", score_s)
+                    score_d = (score_s[0] + score_s[1])/2
 
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
@@ -1051,6 +1044,8 @@ if __name__ == "__main__":
             config += "/neat_configs/bands.txt"
         elif args.structure == StructureType.Circles or args.structure == StructureType.CirclesFree:
             config += "/neat_configs/circles.txt"
+        elif args.structure == StructureType.Free:
+            config += "/neat_configs/free.txt"
         else :
             config += "/neat_configs/default.txt"
         
