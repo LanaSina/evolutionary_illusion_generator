@@ -135,9 +135,10 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
 
 # returns the agreement and disagreement betwen vectors
 def swarm_score(vectors):
-    max_distance = 10 #px
-    agreement = 0
-    discord = 0
+    max_distance = 20 #px
+    # agreement = 0
+    # discord = 0
+    score = 0
     n = len(vectors)
 
     # normalize vectors
@@ -167,17 +168,15 @@ def swarm_score(vectors):
         angle_diff = abs(angles-v_angle)
         angle_diff = angle_diff % 2*math.pi
         angle_diff = angle_diff/(2*math.pi)
-        #print("angle_diff ", angle_diff)
-        temp = np.multiply(distance_factors,abs(angle_diff-1))
-        temp = np.sum(temp)/n
-        #print("temp ", temp)
-        agreement = agreement + temp
-        temp = np.multiply(distance_factors,angle_diff)
-        discord = discord + np.sum(temp)/n
+        v_agreement = np.multiply(distance_factors,abs(angle_diff-1))
+        v_agreement = np.sum(v_agreement)/n
+        v_discord = np.multiply(distance_factors,angle_diff)
+        v_discord = np.sum(temp)/n
 
-    result = [agreement/n, discord/n]
+        # optimize for extreme values
+        score = score + (v_agreement-0.5)*(v_agreement-0.5) + (v_discord-0.5)*(v_discord-0.5)
 
-    return result
+    return score/n
 
 
 # rotate all vectors to align their origin on x axis
@@ -936,7 +935,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     score_number = min(len(good_vectors),(h*w/5))/(h*w/5)
                     score_s = swarm_score(good_vectors)
                     print("swarm_score", score_s)
-                    score_d = 0.2*score_strength + 0.2*score_number+ 0.6*(score_s[0] + score_s[1])/2
+                    score_d = score_number*(0.3*score_strength + 0.7*score_s)
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
