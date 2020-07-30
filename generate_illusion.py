@@ -169,12 +169,16 @@ def swarm_score(vectors):
         angle_diff = angle_diff % 2*math.pi
         angle_diff = angle_diff/(2*math.pi)
         v_agreement = np.multiply(distance_factors,abs(angle_diff-1))
-        v_agreement = np.sum(v_agreement)/n
-        v_discord = np.multiply(distance_factors,angle_diff)
-        v_discord = np.sum(temp)/n
+
+        # optimize for a balance of extreme values
+        v_agreement = np.var(v_agreement)
+        print(v_agreement)
+        # v_agreement = ((v_agreement-0.5)*(v_agreement-0.5)/(0.5*0.5))
+        # v_agreement = np.sum(v_agreement)
 
         # optimize for extreme values
-        score = score + (v_agreement-0.5)*(v_agreement-0.5) + (v_discord-0.5)*(v_discord-0.5)
+        # 
+        score = score + v_agreement#((v_agreement-0.5)*(v_agreement-0.5)/(0.5*0.5)) * ((v_discord-0.5)*(v_discord-0.5)/(0.5*0.5))
 
     return score/n
 
@@ -932,9 +936,9 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
 
                 if(len(good_vectors)>0): 
                     score_strength = strength_number(good_vectors,max_strength)
-                    score_number = min(len(good_vectors),(h*w/5))/(h*w/5)
+                    score_number = min(len(good_vectors),(h*w/10*15))/(h*w/10*15)
                     score_s = swarm_score(good_vectors)
-                    print("swarm_score", score_s)
+                    # print("swarm_score", score_s)
                     score_d = score_number*(0.3*score_strength + 0.7*score_s)
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
