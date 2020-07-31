@@ -6,6 +6,8 @@ This tool relies on a cost function derived from a model built fron the architec
 
 ## Concept
 
+How is prediction related to illusions? Watch the talk here: https://www.youtube.com/watch?v=jmC3B-tM2Zc
+
 EIGen generates static images that appear to move: motion illusions. It is based on predictive coding:
 
 ![EIGen structure](_EIGen.png)
