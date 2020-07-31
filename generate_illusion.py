@@ -15,7 +15,6 @@ from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
 from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
 from random import random, randrange
 import shutil
-import shutil
 import torch
 
 
@@ -171,14 +170,19 @@ def swarm_score(vectors):
         v_agreement = np.multiply(distance_factors,abs(angle_diff-1))
 
         # optimize for a balance of extreme values
-        v_agreement = np.var(v_agreement)
-        print(v_agreement)
+        # sum of values shifted to [-0.5,0.5] should be 0, but variance should be high
+        # ideally: half 0.5 half -0.5, mean 0
+        temp = (1-np.sum(v_agreement-0.5)/n)*np.var(v_agreement) 
+        #print(temp)
+        # v_agreement = np.var(v_agreement)
+        # print(v_agreement)
         # v_agreement = ((v_agreement-0.5)*(v_agreement-0.5)/(0.5*0.5))
         # v_agreement = np.sum(v_agreement)
 
         # optimize for extreme values
         # 
-        score = score + v_agreement#((v_agreement-0.5)*(v_agreement-0.5)/(0.5*0.5)) * ((v_discord-0.5)*(v_discord-0.5)/(0.5*0.5))
+        score = score + temp#((v_agreement-0.5)*(v_agreement-0.5)/(0.5*0.5)) * ((v_discord-0.5)*(v_discord-0.5)/(0.5*0.5))
+
 
     return score/n
 
@@ -1032,7 +1036,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = N
     winner = p.run(eval_genomes, 300)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='optical flow tests')
+    parser = argparse.ArgumentParser(description='generate illusions')
     parser.add_argument('--model', '-m', default='', help='.model file')
     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
     parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
