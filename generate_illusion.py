@@ -135,7 +135,7 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
 # returns the agreement and disagreement betwen vectors
 # returns the agreement and disagreement betwen vectors
 def swarm_score(vectors):
-    max_distance = 30 #px
+    max_distance = 100 #px
     distance_2 = 50
     w = 160
     h = 120
@@ -163,11 +163,11 @@ def swarm_score(vectors):
         distance_factors = np.where(distance_factors > 1, 1, distance_factors)
         close = 1-distance_factors
 
-        distance_factors = (np.multiply(x,x) + np.multiply(y,y))
-        distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
-        distance_factors = np.where(distance_factors < max_distance*max_distance, distance_2*distance_2, distance_factors)
-        far = 1 - (distance_factors/(distance_2*distance_2))
-        #print("far", far)
+        # distance_factors = (np.multiply(x,x) + np.multiply(y,y))
+        # distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
+        # distance_factors = np.where(distance_factors < max_distance*max_distance, distance_2*distance_2, distance_factors)
+        # far = 1 - (distance_factors/(distance_2*distance_2))
+        # #print("far", far)
 
         # vectors orientation
         # alpha = acos(x)
@@ -175,18 +175,22 @@ def swarm_score(vectors):
         angle_diff = abs(angles-v_angle)
         angle_diff = angle_diff % 2*math.pi
         angle_diff = angle_diff/(2*math.pi)
-        v_agreement = np.multiply(close,abs(1-angle_diff))
-        v_discord = np.multiply(far,abs(angle_diff))
+        # v_agreement = np.multiply(close,abs(1-angle_diff))
+        # v_discord = np.multiply(far,abs(angle_diff))
 
-        # optimize for a balance of extreme values
-        s1 = sum(v_agreement)/(2*math.pi*max_distance) 
-        s2 = sum(v_discord)/(2*math.pi*(distance_2- max_distance))
-        temp = s1*s2
+        # # optimize for a balance of extreme values
+        # s1 = sum(v_agreement)/(2*math.pi*max_distance) 
+        # s2 = sum(v_discord)/(2*math.pi*(distance_2- max_distance))
+        # temp = s1*s2
 
-        score = score + temp
+        # oprimal deviation: completely opposite at 100 px away (distance factor  = 1)
+        optimal = distance_factors*math.pi
+        loss = abs(angle_diff-optimal)
+        temp = 2*math.pi - (sum(loss)/n)
+        score = score + (temp/2*math.pi)
 
 
-    return score
+    return score/n
 
 # rotate all vectors to align their origin on x axis
 # calculate the mean and variance of normalized vectors
@@ -978,10 +982,10 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
 
                 if(len(good_vectors)>0): 
                     score_strength = strength_number(good_vectors,max_strength)
-                    # score_number = min(len(good_vectors),15)/15
-                    score_s = swarm_score(good_vectors)*100
+                    score_number = min(len(good_vectors),15)/15
+                    score_s = swarm_score(good_vectors)
                     # print("swarm_score", score_s)
-                    score_d = 0.7*score_s + 0.3*score_strength
+                    score_d = 0.8*score_s + 0.1*score_strength + 0.1*score_number
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
