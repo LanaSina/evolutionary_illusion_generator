@@ -11,8 +11,6 @@ def swarm_score(vectors):
     distance_2 = 50
     w = 160
     h = 120
-    # agreement = 0
-    # discord = 0
     score = 0
     n = len(vectors)
 
@@ -35,9 +33,8 @@ def swarm_score(vectors):
         distance_factors = (np.multiply(x,x) + np.multiply(y,y))
         distance_factors = distance_factors/(max_distance*max_distance)
         distance_factors = np.where(distance_factors > 1, 1, distance_factors)
-        # print("distance_factors", distance_factors)
         close = 1-distance_factors
-        #print("distance_factors", distance_factors)
+
         distance_factors = (np.multiply(x,x) + np.multiply(y,y))
         distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
         distance_factors = np.where(distance_factors < max_distance*max_distance, distance_2*distance_2, distance_factors)
@@ -52,31 +49,13 @@ def swarm_score(vectors):
         angle_diff = angle_diff/(2*math.pi)
         v_agreement = np.multiply(close,abs(1-angle_diff))
         v_discord = np.multiply(far,abs(angle_diff))
-        #print("v_agreement", v_agreement)
-        #print("v_discord", v_discord)
-
-        #print("sums", sum(v_agreement), sum(v_discord))
-
 
         # optimize for a balance of extreme values
-        s1 = sum(v_agreement)/(max_distance*max_distance) 
-        s2 = sum(v_discord)/(w*h-max_distance*max_distance)
+        s1 = sum(v_agreement)/(2*math.pi*max_distance) 
+        s2 = sum(v_discord)/(2*math.pi*(distance_2- max_distance))
         print("s1", s1)
         print("s2", s2)
-        diff = (sum(v_agreement)/(max_distance*max_distance) - sum(v_discord)/(w*h-distance_2*distance_2))
-
         temp = s1*s2
-        print("temp", temp)
-
-        # optimize for a balance of extreme values
-        # sum of values shifted to [-0.5,0.5] should be 0, but variance should be high
-        # ideally: half 0.5 half -0.5, mean 0
-        # temp = abs(np.sum(v_agreement-0.5))
-        # temp = temp/(max_distance*(2*math.pi)) 
-        # temp = 1-temp
-        # temp = temp*np.var(v_agreement) 
-        # print("var", np.var(v_agreement) )
-        # print("score", temp)
 
         score = score + temp/2
 

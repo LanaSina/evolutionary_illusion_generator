@@ -133,10 +133,12 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
 
 
 # returns the agreement and disagreement betwen vectors
+# returns the agreement and disagreement betwen vectors
 def swarm_score(vectors):
-    max_distance = 20 #px
-    # agreement = 0
-    # discord = 0
+    max_distance = 30 #px
+    distance_2 = 50
+    w = 160
+    h = 120
     score = 0
     n = len(vectors)
 
@@ -158,8 +160,14 @@ def swarm_score(vectors):
         # [0 .. 1]
         distance_factors = (np.multiply(x,x) + np.multiply(y,y))
         distance_factors = distance_factors/(max_distance*max_distance)
-        distance_factors = an_array = np.where(distance_factors > 1, 1, distance_factors)
-        # print("distance_factors", distance_factors)
+        distance_factors = np.where(distance_factors > 1, 1, distance_factors)
+        close = 1-distance_factors
+
+        distance_factors = (np.multiply(x,x) + np.multiply(y,y))
+        distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
+        distance_factors = np.where(distance_factors < max_distance*max_distance, distance_2*distance_2, distance_factors)
+        far = 1 - (distance_factors/(distance_2*distance_2))
+        #print("far", far)
 
         # vectors orientation
         # alpha = acos(x)
@@ -167,25 +175,18 @@ def swarm_score(vectors):
         angle_diff = abs(angles-v_angle)
         angle_diff = angle_diff % 2*math.pi
         angle_diff = angle_diff/(2*math.pi)
-        v_agreement = np.multiply(distance_factors,abs(angle_diff-1))
+        v_agreement = np.multiply(close,abs(1-angle_diff))
+        v_discord = np.multiply(far,abs(angle_diff))
 
         # optimize for a balance of extreme values
-        # sum of values shifted to [-0.5,0.5] should be 0, but variance should be high
-        # ideally: half 0.5 half -0.5, mean 0
-        temp = (1-np.sum(v_agreement-0.5)/n)*np.var(v_agreement) 
-        #print(temp)
-        # v_agreement = np.var(v_agreement)
-        # print(v_agreement)
-        # v_agreement = ((v_agreement-0.5)*(v_agreement-0.5)/(0.5*0.5))
-        # v_agreement = np.sum(v_agreement)
+        s1 = sum(v_agreement)/(2*math.pi*max_distance) 
+        s2 = sum(v_discord)/(2*math.pi*(distance_2- max_distance))
+        temp = s1*s2
 
-        # optimize for extreme values
-        # 
-        score = score + temp#((v_agreement-0.5)*(v_agreement-0.5)/(0.5*0.5)) * ((v_discord-0.5)*(v_discord-0.5)/(0.5*0.5))
+        score = score + temp
 
 
-    return score/n
-
+    return score
 
 # rotate all vectors to align their origin on x axis
 # calculate the mean and variance of normalized vectors
@@ -525,6 +526,43 @@ def tangent_ratio(vectors, limits = None):
 
     return [direction, abs(mean_alignment)]
 
+def get_vectors(image_path, model_name):
+    skip = 1
+    extension_duration = 2
+    repeat = 20
+    w = 160
+    h = 120
+    half_h = int(h/2)
+    size = [w,h]
+    channels = [3,48,96,192]
+    gpu = 0
+
+    output_dir = "test/" 
+    prediction_dir = output_dir + "/prediction/"
+    if not os.path.exists(prediction_dir):
+        os.makedirs(prediction_dir)
+
+    
+    repeated_images_list = [image_path]*repeat
+    # print("list", repeated_images_list)
+
+    # runs repeat x times on the input image, save in result folder
+    test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
+                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
+                extension_start = repeat, extension_duration = extension_duration,
+                reset_at = repeat+extension_duration, verbose = 0
+                )
+
+    extended = prediction_dir + str(repeat+1).zfill(10) + "_extended.png"
+    # calculate flows
+    print("Calculating flows...", extended)
+    vectors = [None] 
+
+    results = lucas_kanade(image_path, extended, prediction_dir, save=True, verbose = 0, save_name = "flow.png")
+    if results["vectors"]:
+        vectors = np.asarray(results["vectors"])
+
+    return vectors
 
 
 def generate_random_image(w, h):
@@ -940,10 +978,10 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
 
                 if(len(good_vectors)>0): 
                     score_strength = strength_number(good_vectors,max_strength)
-                    score_number = min(len(good_vectors),(h*w/10*15))/(h*w/10*15)
-                    score_s = swarm_score(good_vectors)
+                    # score_number = min(len(good_vectors),15)/15
+                    score_s = swarm_score(good_vectors)*100
                     # print("swarm_score", score_s)
-                    score_d = score_number*(0.3*score_strength + 0.7*score_s)
+                    score_d = 0.7*score_s + 0.3*score_strength
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
