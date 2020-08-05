@@ -133,12 +133,9 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
 
 
 # returns the agreement and disagreement betwen vectors
-# returns the agreement and disagreement betwen vectors
-def swarm_score(vectors):
+def swarm_score(vectors,w, h):
     max_distance = 100 #px
     distance_2 = 50
-    w = 160
-    h = 120
     score = 0
     n = len(vectors)
 
@@ -158,10 +155,12 @@ def swarm_score(vectors):
         x = norm_vectors[:,0]-v_a[0]
         y = norm_vectors[:,1]-v_a[1]
         # [0 .. 1]
-        distance_factors = (np.multiply(x,x) + np.multiply(y,y))
-        distance_factors = distance_factors/(max_distance*max_distance)
+        distances = (np.multiply(x,x) + np.multiply(y,y))
+        distance_factors = distances/(max_distance*max_distance)
         distance_factors = np.where(distance_factors > 1, 1, distance_factors)
-        close = 1-distance_factors
+        # 1 where vectors are close
+        close = 1 - np.where(distance_factors < 1, 0, distance_factors)
+        # close = 1-distance_factors
 
         # distance_factors = (np.multiply(x,x) + np.multiply(y,y))
         # distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
@@ -184,10 +183,10 @@ def swarm_score(vectors):
         # temp = s1*s2
 
         # oprimal deviation: completely opposite at 100 px away (distance factor  = 1)
-        optimal = distance_factors*math.pi
-        loss = abs(angle_diff-optimal)
-        temp = 2*math.pi - (sum(loss)/n)
-        score = score + (temp/2*math.pi)
+        optimal = (v_angle + distance_factors*math.pi)%2*math.pi
+        loss = close*abs(angles-optimal)
+        temp = math.pi - (sum(loss)/n)
+        score = score + (temp/math.pi)
 
 
     return score/n
@@ -196,13 +195,13 @@ def swarm_score(vectors):
 # calculate the mean and variance of normalized vectors
 # returns a high score if the variance is low (ie the vectors are symmetric)
 # limits = radius limits
-def rotation_symmetry_score(vectors, limits = None, original_filename="temp.png"):
+def rotation_symmetry_score(vectors, w, h, limits = None, original_filename="temp.png"):
 
     # fill matrix of vectors
     rotated_vectors = np.zeros((len(vectors), 4))
     distances = np.zeros((len(vectors)))
     count = 0
-    center = [160/2, 120/2]
+    center = [w/2, h/2]
     for v in vectors:
         # change coordinates to center
         vc = [v[0]-center[0], v[1]-center[1]]
@@ -447,14 +446,12 @@ def divergence_convergence_score(vectors, width, height):
 # b = 1 if all vectors are tangent
 # 1 -> clockwise
 # -1 0-> counter clockwise
-def tangent_ratio(vectors, limits = None):
+def tangent_ratio(vectors, w, h, limits = None):
     # we want to know the angle between
     # a radius of the circle at the center of the image
     # and the motion vectors
 
     # center
-    w = 160
-    h = 120
     c = [w/2.0, h/2.0]
 
     # scores
@@ -530,12 +527,10 @@ def tangent_ratio(vectors, limits = None):
 
     return [direction, abs(mean_alignment)]
 
-def get_vectors(image_path, model_name):
+def get_vectors(image_path, model_name, w, h):
     skip = 1
     extension_duration = 2
     repeat = 20
-    w = 160
-    h = 120
     half_h = int(h/2)
     size = [w,h]
     channels = [3,48,96,192]
@@ -856,12 +851,10 @@ def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
 # population:  [id, net]
-def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3, best_dir = "."):
+def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_dim=3, best_dir = "."):
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
     repeat = 20
-    w = 160
-    h = 120
     half_h = int(h/2)
     size = [w,h]
     channels = [3,48,96,192]
@@ -970,7 +963,7 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     limits = [0, h/2]
                     # temp = h/(2*3)
                     # limits = [temp*2, temp*3]
-                    score_direction = rotation_symmetry_score(good_vectors, limits, images_list[index])
+                    score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
                     score_strength = strength_number(good_vectors,max_strength)
                     score_d = 0.7*score_direction + 0.3*score_strength
                     print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
@@ -983,9 +976,9 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                 if(len(good_vectors)>0): 
                     score_strength = strength_number(good_vectors,max_strength)
                     score_number = min(len(good_vectors),15)/15
-                    score_s = swarm_score(good_vectors)
+                    score_s = swarm_score(good_vectors, w, h)
                     # print("swarm_score", score_s)
-                    score_d = 0.8*score_s + 0.1*score_strength + 0.1*score_number
+                    score_d = 0.5*score_s + 0.1*score_strength + 0.4*score_number
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
@@ -1037,11 +1030,9 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     back_im.save(image_name)
 
 
-def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = None):
+def neat_illusion(output_dir, model_name, config_path, structure, w, h, checkpoint = None):
     repeat = 6
     limit = 1
-    w = 160
-    h = 120
     half_h = int(h/2)
     size = [w,h]
     channels = [3,48,96,192]
@@ -1058,7 +1049,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = N
                          config_path)
 
     def eval_genomes(genomes, config):
-        get_fitnesses_neat(structure, genomes, model_name, config, c_dim=c_dim, best_dir=best_dir)
+        get_fitnesses_neat(structure, genomes, model_name, config, w, h, c_dim=c_dim, best_dir=best_dir)
 
     checkpointer = neat.Checkpointer(100)
 
@@ -1084,12 +1075,19 @@ if __name__ == "__main__":
     parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
     parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
-
+    parser.add_argument('--size', '-wh', help='big or small', default="small")
 
     args = parser.parse_args()
     output_dir = args.output_dir 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    w = 160
+    h = 120
+    if args.size == "big":
+        w = 640
+        h = 480
+
 
     config = args.config
 
@@ -1106,5 +1104,5 @@ if __name__ == "__main__":
             config += "/neat_configs/default.txt"
         
     print("config", config)
-    neat_illusion(output_dir, args.model,config, args.structure, args.checkpoint)
+    neat_illusion(output_dir, args.model,config, args.structure, w, h,args.checkpoint)
 

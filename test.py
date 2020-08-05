@@ -30,10 +30,12 @@ def swarm_score(vectors):
         x = norm_vectors[:,0]-v_a[0]
         y = norm_vectors[:,1]-v_a[1]
         # [0 .. 1]
-        distance_factors = (np.multiply(x,x) + np.multiply(y,y))
-        distance_factors = distance_factors/(max_distance*max_distance)
+        distances = (np.multiply(x,x) + np.multiply(y,y))
+        distance_factors = distances/(max_distance*max_distance)
         distance_factors = np.where(distance_factors > 1, 1, distance_factors)
-        close = 1-distance_factors
+        # 1 where vectors are close
+        close = 1 - np.where(distance_factors < 1, 0, distance_factors)
+        # close = 1-distance_factors
 
         # distance_factors = (np.multiply(x,x) + np.multiply(y,y))
         # distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
@@ -56,10 +58,16 @@ def swarm_score(vectors):
         # temp = s1*s2
 
         # oprimal deviation: completely opposite at 100 px away (distance factor  = 1)
-        optimal = distance_factors*math.pi
-        loss = abs(angle_diff-optimal)
-        temp = 2*math.pi - (sum(loss)/n)
-        score = score + (temp/2*math.pi)
+        optimal = (v_angle + distance_factors*math.pi)%2*math.pi
+        ocsv = ','.join(map(str, optimal))
+        dcsv = ','.join(map(str, distances))
+        #print("optimal", ocsv)
+        print("distances", dcsv)
+        loss = close*abs(angles-optimal)
+        lcsv = ','.join(map(str, loss))
+        print("loss", lcsv)
+        temp = math.pi - (sum(loss)/n)
+        score = score + (temp/math.pi)
 
 
     return score/n
