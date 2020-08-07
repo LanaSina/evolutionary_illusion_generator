@@ -1035,7 +1035,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, checkpoi
     limit = 1
     half_h = int(h/2)
     size = [w,h]
-    channels = [3,48,96,192]
+    channels = [3,48,96,192] #[3,192,384,768] #[3,48,96,192]
     gpu = 0
     c_dim = 3
 
