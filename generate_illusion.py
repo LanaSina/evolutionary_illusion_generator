@@ -566,15 +566,15 @@ def get_vectors(image_path, model_name, w, h):
 
 # fill carthesian grids with polar coordinates
 # r_len = repetition length
-# xx yy cartesian x and y, oigin relative to whole grid
+# xx yy cartesian x and y, origin relative to whole grid
 # x,y coordinates relative to center
-def fill_circle(x, y, xx, yy, rep_len,max_radius, x_mat, y_mat):
+def fill_circle(x, y, xx, yy, rep_len, max_radius):
     r_total = np.sqrt(x*x + y*y)
                     
     # limit values to frame
     # r = min(r_total, y_res/2)
     # it repeats every r_len
-    r = r % rep_len
+    r = r_total % rep_len
     # normalize
     r = r/rep_len
 
@@ -607,18 +607,15 @@ def fill_circle(x, y, xx, yy, rep_len,max_radius, x_mat, y_mat):
     else:
         r = -1
 
-    x_mat[yy,xx] = r 
-    y_mat[yy,xx] = theta 
+    return r, theta
 
 
-def enhanced_image_grid():
-
-    x_res = 800
-    y_res = 800
+def enhanced_image_grid(x_res, y_res):
 
     r_mat = None 
     x_mat = None
     y_mat = None
+    scaling = 10
 
     num_points = x_res*y_res
     # coordinates of circle centers
@@ -626,7 +623,7 @@ def enhanced_image_grid():
     c_rows = 3
     # 4 circles per row
     c_cols = 4
-    y_step = (int) (y_res/c_rows)
+    y_step = (int) (y_res/c_cols)
     x_step = (int) (x_res/c_cols)
 
     # overlaid cicrles: 2 rows of 3 circles
@@ -634,32 +631,44 @@ def enhanced_image_grid():
     sub_cols = c_cols-1
     # coordinates
     centers = [None]*(c_rows*c_cols + sub_rows*sub_cols)
+
     for y in range(c_rows):
         for x in range(c_cols):
             index = y*c_cols + x
-            centers[index] = [x_step*x, y_step*y]
+            centers[index] = [x_step*x+x_step/2, y_step*y+y_step/2]
+
+    for y in range(sub_rows):
+        for x in range(sub_cols):
+            index = c_rows*c_cols + y*sub_cols + x
+            centers[index] = [x_step*x + x_step, y_step*y + x_step]
 
     # radial repetition
-    r_rep = 5
+    r_rep = 3
     r_len = int(y_step/(2*r_rep))
-    x_range = np.linspace(-1*scaling, scaling, num = x_step)
-    y_range = np.linspace(-1*scaling, scaling, num = y_step)
+    x_range = np.linspace(-1*scaling, scaling, num = x_res)
+    y_range = np.linspace(-1*scaling, scaling, num = y_res)
 
     y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
     x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
 
 
-    for r in range(c_rows):
-        for c in range(c_cols):
-            index = r*c_cols + c
+    for row in range(c_rows):
+        for col in range(c_cols):
+            index = row*c_cols + col
+            # print(row, col, index)
             # x = r × cos( θ )
             # y = r × sin( θ )
             for xx in range(x_step):
                 # shift coordinate to center of image
-                x = xx - centers[index][0]
+                real_x = (col*x_step + xx)
+                x =  real_x - centers[index][0]
                 for yy in range(y_step):
-                    y = yy - centers[index][1]
-                    fill_circle(x, y, xx, yy, r_rep, y_step, x_mat, y_mat)
+                    real_y = (row*y_step + yy)
+                    y =  real_y - centers[index][1]
+                    r, theta = fill_circle(x, y, real_x, real_y, r_rep, y_step)
+                    x_mat[real_y,real_x] = r 
+                    y_mat[real_y,real_x] = theta 
+                    #print(xx, yy, r, theta)
         
     return {"x_mat": x_mat, "y_mat": y_mat}
 
@@ -930,14 +939,14 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     images_list = [None]*total_count
     repeated_images_list = [None]* (total_count + repeat)
     i = 0
-    image_inputs = create_grid(structure, w, h, scaling)
+    image_inputs = create_grid(structure, w, h, 10)
     for genome_id, genome in population:
         # traverse latent space
         j = 0
         for s in range(0,pertype_count):
             s_val = -1 + s*s_step
             index = i*pertype_count+j
-            image = get_image_from_cppn(image_inputs, genome, c_dim, w, h, scaling = 10, config, s_val = s_val)
+            image = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val)
 
             # save color image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
@@ -1075,8 +1084,10 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
 
 
     # create enhanced image
-    e_grid = enhanced_image_grid()
-    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, w, h, scaling = 10, config, s_val = -1)
+    e_w = 800
+    e_h = 800
+    e_grid = enhanced_image_grid(e_w, e_h)
+    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config, s_val = -1)
 
 
     # image = Image.open(images_list[best_illusion])
@@ -1091,7 +1102,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     # back_im.paste(image, (h, h))
     image_name = best_dir + "/enhanced.png"
     # back_im.save(image_name)
-    back_im.save(image_name)
+    image.save(image_name)
 
 
 def neat_illusion(output_dir, model_name, config_path, structure, w, h, checkpoint = None):
