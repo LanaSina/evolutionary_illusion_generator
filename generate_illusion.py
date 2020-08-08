@@ -564,32 +564,104 @@ def get_vectors(image_path, model_name, w, h):
     return vectors
 
 
-def generate_random_image(w, h):
-    image = np.random.randint(256, size=(w, h, 3))
-    return np.uint8(image)
+# fill carthesian grids with polar coordinates
+# r_len = repetition length
+# xx yy cartesian x and y, oigin relative to whole grid
+# x,y coordinates relative to center
+def fill_circle(x, y, xx, yy, rep_len,max_radius, x_mat, y_mat):
+    r_total = np.sqrt(x*x + y*y)
+                    
+    # limit values to frame
+    # r = min(r_total, y_res/2)
+    # it repeats every r_len
+    r = r % rep_len
+    # normalize
+    r = r/rep_len
 
-def random_modify(image_path):
-    image = np.array(Image.open(image_path).convert('RGB'))
-
-    w = image.shape[0]
-    h = image.shape[1]
-    c_range = 50
-
-    for x in range(0,500):
-        i = randrange(w)
-        j = randrange(h)
-        color = randrange(3)
-        sign = random()
-
-        pixel = image[i,j]
-        if sign>=0.5:
-            pixel[color] = pixel[color] + randrange(c_range)
-            if pixel[color] > 255 : pixel[color] = 255
+    # now structure theta values
+    theta = 0
+    if r_total < max_radius/2:
+        if x == 0:
+            theta = math.pi/2.0
         else:
-            pixel[color] = pixel[color] - randrange(c_range) 
-            if pixel[color] < 0  : pixel[color] = 0
+            theta = np.arctan(y*1.0/x)
 
-    return image
+        if x<0:
+            theta = theta + math.pi
+
+        r_index = int(r_total/rep_len)
+        if r_index%2 == 1:
+            # rotate
+            theta = (theta + math.pi/4.0) 
+
+        # focus on 1 small pattern
+        theta = theta % (math.pi/6.0)
+
+        # keep some white space
+        if (r>0.9) or (r<0.1):
+            r = -1
+            theta = 0
+        else :
+            #final normalization
+            r = r/0.8
+    else:
+        r = -1
+
+    x_mat[yy,xx] = r 
+    y_mat[yy,xx] = theta 
+
+
+def enhanced_image_grid():
+
+    x_res = 800
+    y_res = 800
+
+    r_mat = None 
+    x_mat = None
+    y_mat = None
+
+    num_points = x_res*y_res
+    # coordinates of circle centers
+    # 1: one row of circles at each third of the image
+    c_rows = 3
+    # 4 circles per row
+    c_cols = 4
+    y_step = (int) (y_res/c_rows)
+    x_step = (int) (x_res/c_cols)
+
+    # overlaid cicrles: 2 rows of 3 circles
+    sub_rows = c_rows-1
+    sub_cols = c_cols-1
+    # coordinates
+    centers = [None]*(c_rows*c_cols + sub_rows*sub_cols)
+    for y in range(c_rows):
+        for x in range(c_cols):
+            index = y*c_cols + x
+            centers[index] = [x_step*x, y_step*y]
+
+    # radial repetition
+    r_rep = 5
+    r_len = int(y_step/(2*r_rep))
+    x_range = np.linspace(-1*scaling, scaling, num = x_step)
+    y_range = np.linspace(-1*scaling, scaling, num = y_step)
+
+    y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
+    x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
+
+
+    for r in range(c_rows):
+        for c in range(c_cols):
+            index = r*c_cols + c
+            # x = r × cos( θ )
+            # y = r × sin( θ )
+            for xx in range(x_step):
+                # shift coordinate to center of image
+                x = xx - centers[index][0]
+                for yy in range(y_step):
+                    y = yy - centers[index][1]
+                    fill_circle(x, y, xx, yy, r_rep, y_step, x_mat, y_mat)
+        
+    return {"x_mat": x_mat, "y_mat": y_mat}
 
 
 def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
@@ -767,17 +839,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
     return {"input_0": x_mat, "input_1": y_mat, "input_2": r_mat} #, s_mat
 
-def fully_connected(input, out_dim, with_bias = True, mat = None):
-    if mat is None:
-        mat = np.random.standard_normal(size = (input.shape[1], out_dim)).astype(np.float32)
-
-    result = np.matmul(input, mat)
-
-    if with_bias == True:
-        bias = np.random.standard_normal(size =(1, out_dim)).astype(np.float32)
-        result += bias * np.ones((input.shape[0], 1), dtype = np.float32)
-
-    return result
 
 def get_fidelity(input_image_path, prediction_image_path):
     input_image = np.array(Image.open(input_image_path).convert('RGB'))
@@ -791,15 +852,10 @@ def get_fidelity(input_image_path, prediction_image_path):
     return 1-err
 
 
-def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
-
-    scaling = 10
+def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1):
    
     # why twice???
     out_names = ["r0","g0","b0","r1","g1","b1"]
-
-    inputs = create_grid(structure, w, h, scaling)
-
     leaf_names = ["x","y"]
     x_dat = inputs["x_mat"]
     y_dat = inputs["y_mat"]
@@ -874,13 +930,14 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     images_list = [None]*total_count
     repeated_images_list = [None]* (total_count + repeat)
     i = 0
+    image_inputs = create_grid(structure, w, h, scaling)
     for genome_id, genome in population:
         # traverse latent space
         j = 0
         for s in range(0,pertype_count):
             s_val = -1 + s*s_step
             index = i*pertype_count+j
-            image = get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = s_val)
+            image = get_image_from_cppn(image_inputs, genome, c_dim, w, h, scaling = 10, config, s_val = s_val)
 
             # save color image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
@@ -1015,18 +1072,25 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
+
+
     # create enhanced image
-    image = Image.open(images_list[best_illusion])
-    center = [(int) (w/2), (int) (h/2)]
-    crop = (center[0]-center[1], 0, center[0]+center[1], h)
-    print(crop)
-    image = image.crop(crop)
-    back_im = Image.new('RGB', (h*2, h*2))
-    back_im.paste(image, (0, 0))
-    back_im.paste(ImageOps.mirror(image), (h, 0))
-    back_im.paste(ImageOps.mirror(image), (0, h))
-    back_im.paste(image, (h, h))
+    e_grid = enhanced_image_grid()
+    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, w, h, scaling = 10, config, s_val = -1)
+
+
+    # image = Image.open(images_list[best_illusion])
+    # center = [(int) (w/2), (int) (h/2)]
+    # crop = (center[0]-center[1], 0, center[0]+center[1], h)
+    # print(crop)
+    # image = image.crop(crop)
+    # back_im = Image.new('RGB', (h*2, h*2))
+    # back_im.paste(image, (0, 0))
+    # back_im.paste(ImageOps.mirror(image), (h, 0))
+    # back_im.paste(ImageOps.mirror(image), (0, h))
+    # back_im.paste(image, (h, h))
     image_name = best_dir + "/enhanced.png"
+    # back_im.save(image_name)
     back_im.save(image_name)
 
 
