@@ -568,7 +568,8 @@ def get_vectors(image_path, model_name, w, h):
 # r_len = repetition length
 # xx yy cartesian x and y, origin relative to whole grid
 # x,y coordinates relative to center
-def fill_circle(x, y, xx, yy, rep_len, max_radius):
+# direction: 1 or -1
+def fill_circle(x, y, xx, yy, rep_len, max_radius, direction):
     r_total = np.sqrt(x*x + y*y)
                     
     # limit values to frame
@@ -596,16 +597,19 @@ def fill_circle(x, y, xx, yy, rep_len, max_radius):
 
         # focus on 1 small pattern
         theta = theta % (math.pi/6.0)
+        if direction<0:
+            theta = (math.pi/6.0) - theta
 
-        # keep some white space
+        # # keep some white space
         if (r>0.9) or (r<0.1):
             r = -1
             theta = 0
         else :
             #final normalization
             r = r/0.8
-    else:
-        r = -1
+    # else:
+    #     if not secondary:
+    #         r = -1
 
     return r, theta
 
@@ -620,7 +624,7 @@ def enhanced_image_grid(x_res, y_res):
     num_points = x_res*y_res
     # coordinates of circle centers
     # 1: one row of circles at each third of the image
-    c_rows = 3
+    c_rows = 4
     # 4 circles per row
     c_cols = 4
     y_step = (int) (y_res/c_cols)
@@ -635,7 +639,7 @@ def enhanced_image_grid(x_res, y_res):
     for y in range(c_rows):
         for x in range(c_cols):
             index = y*c_cols + x
-            centers[index] = [x_step*x+x_step/2, y_step*y+y_step/2]
+            centers[index] = [x_step*x + x_step/2, y_step*y + y_step/2]
 
     for y in range(sub_rows):
         for x in range(sub_cols):
@@ -651,24 +655,46 @@ def enhanced_image_grid(x_res, y_res):
     y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
     x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
 
-
     for row in range(c_rows):
         for col in range(c_cols):
             index = row*c_cols + col
+            direction = 1
+            if index%2==0:
+                direction = -1
             # print(row, col, index)
             # x = r × cos( θ )
             # y = r × sin( θ )
             for xx in range(x_step):
-                # shift coordinate to center of image
+                # shift coordinate to center of circle
                 real_x = (col*x_step + xx)
                 x =  real_x - centers[index][0]
                 for yy in range(y_step):
                     real_y = (row*y_step + yy)
                     y =  real_y - centers[index][1]
-                    r, theta = fill_circle(x, y, real_x, real_y, r_rep, y_step)
+                    r, theta = fill_circle(x, y, real_x, real_y, r_len, y_step, direction)
                     x_mat[real_y,real_x] = r 
                     y_mat[real_y,real_x] = theta 
-                    #print(xx, yy, r, theta)
+
+
+    # secondary layer of circles
+    for row in range(sub_rows):
+        for col in range(sub_cols):
+            index = c_rows*c_cols + row*sub_rows + col
+            direction = 1
+            if index%2==0:
+                direction = -1
+            for xx in range(x_step):
+                # shift coordinate to center 
+                real_x = (col*x_step + xx) + (int) (x_step/2)
+                x =  real_x - centers[index][0]
+                for yy in range(y_step):
+                    real_y = (row*y_step + yy) + (int) (y_step/2)
+                    y =  real_y - centers[index][1]
+                    r_total = np.sqrt(x*x + y*y)
+                    if r_total < x_step/2:
+                        r, theta = fill_circle(x, y, real_x, real_y, r_len, y_step, direction)
+                        x_mat[real_y,real_x] = r 
+                        y_mat[real_y,real_x] = theta 
         
     return {"x_mat": x_mat, "y_mat": y_mat}
 
