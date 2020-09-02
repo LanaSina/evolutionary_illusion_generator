@@ -570,37 +570,28 @@ def get_vectors(image_path, model_name, w, h):
 # xx yy cartesian x and y, origin relative to whole grid
 # x,y coordinates relative to center
 # direction: 1 or -1
-def fill_circle(x, y, xx, yy, rep_len, max_radius, direction): #max diameter?
+def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
     r_total = np.sqrt(x*x + y*y)
-    r_ratios = [0.6,0.3,0.1] 
+    r_ratios = [1,0.6,0.3,0.1,0] 
+    n_ratios = len(r_ratios)
 
     # limit values to frame
-    if r_total > max_radius/2:
-        theta = 0
-        r = -1
-    else:
+    theta = 0
+    r = -1
+    if r_total <= max_radius/2:
         # it repeats every r_len
         #r = r % r_len
         radius = min(1, r_total/(max_radius/2))
-        #print(radius)
+        
         radius_index = 0
-        if radius > r_ratios[0]:
-            r = (radius-r_ratios[0])/(1-r_ratios[0])
-            radius_index = 3
-        elif radius > r_ratios[1]:
-            r = (radius-r_ratios[1])/(r_ratios[0]-r_ratios[1])
-            radius_index = 2
-        elif radius > r_ratios[2]:
-            r = (radius-r_ratios[2])/(r_ratios[1]-r_ratios[2])
-            radius_index = 1
-        else :
-            r = radius/r_ratios[2]
+        for i in range(1,n_ratios-1):
+            if radius > r_ratios[i]:
+                r = (radius-r_ratios[i])/(r_ratios[i-1]-r_ratios[i])
+                radius_index = n_ratios-i-1
+                break;
 
         if direction<0:
             r = 1-r
-
-        # normalize
-        #r = r/r_len
 
         # now structure theta values
         if x == 0:
@@ -611,7 +602,7 @@ def fill_circle(x, y, xx, yy, rep_len, max_radius, direction): #max diameter?
         if x<0:
             theta = theta + math.pi
 
-        r_index = radius_index #int(r_total/r_len)
+        r_index = radius_index 
         if r_index%2 == 1:
             # rotate
             theta = (theta + math.pi/4.0) 
@@ -626,10 +617,6 @@ def fill_circle(x, y, xx, yy, rep_len, max_radius, direction): #max diameter?
         else :
             #final normalization
             r = r/0.8
-
-
-               
-
 
     return r, theta
 
@@ -679,8 +666,8 @@ def enhanced_image_grid(x_res, y_res):
         for col in range(c_cols):
             index = row*c_cols + col
             direction = 1
-            if index%2==0:
-                direction = -1
+            # if index%2==0:
+            #     direction = -1
             # print(row, col, index)
             # x = r × cos( θ )
             # y = r × sin( θ )
@@ -691,7 +678,7 @@ def enhanced_image_grid(x_res, y_res):
                 for yy in range(y_step):
                     real_y = (row*y_step + yy)
                     y =  real_y - centers[index][1]
-                    r, theta = fill_circle(x, y, real_x, real_y, r_len, y_step, direction)
+                    r, theta = fill_circle(x, y, real_x, real_y, y_step, direction)
                     x_mat[real_y,real_x] = r 
                     y_mat[real_y,real_x] = theta 
 
@@ -712,7 +699,7 @@ def enhanced_image_grid(x_res, y_res):
                     y =  real_y - centers[index][1]
                     r_total = np.sqrt(x*x + y*y)
                     if r_total < x_step/2:
-                        r, theta = fill_circle(x, y, real_x, real_y, r_len, y_step, direction)
+                        r, theta = fill_circle(x, y, real_x, real_y, y_step, direction)
                         x_mat[real_y,real_x] = r 
                         y_mat[real_y,real_x] = theta 
         
@@ -783,7 +770,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
  
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-
         # x = r × cos( θ )
         # y = r × sin( θ )
         #radius_index = 0
@@ -792,60 +778,54 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
             x = xx - (x_res/2)
             for yy in range(y_res):
                 y = yy - (y_res/2)
-                r_total = np.sqrt(x*x + y*y)
-                if r_total > y_res/2:
-                    theta = 0
-                    r = -1
-                else:
-                
-                    # limit values to frame
-                    # r = min(r_total, (y_res/2))
-                    # it repeats every r_len
-                    #r = r % r_len
-                    radius = min(1, r_total/(y_res/2))
-                    #print(radius)
-                    radius_index = 0
-                    if radius > r_ratios[0]:
-                        r = (radius-r_ratios[0])/(1-r_ratios[0])
-                        radius_index = 3
-                    elif radius > r_ratios[1]:
-                        r = (radius-r_ratios[1])/(r_ratios[0]-r_ratios[1])
-                        radius_index = 2
-                    elif radius > r_ratios[2]:
-                        r = (radius-r_ratios[2])/(r_ratios[1]-r_ratios[2])
-                        radius_index = 1
-                    else :
-                        r = radius/r_ratios[2]
 
-                    # print(radius, r)
+                r,theta = fill_circle(x, y, xx, yy, y_res, 1)
 
-                    # normalize
-                    #r = r/r_len
+                # r_total = np.sqrt(x*x + y*y)
+                # if r_total > y_res/2:
+                #     theta = 0
+                #     r = -1
+                # else:
+                #     # limit values to frame
+                #     radius = min(1, r_total/(y_res/2))
+                #     #print(radius)
+                #     radius_index = 0
+                #     if radius > r_ratios[0]:
+                #         r = (radius-r_ratios[0])/(1-r_ratios[0])
+                #         radius_index = 3
+                #     elif radius > r_ratios[1]:
+                #         r = (radius-r_ratios[1])/(r_ratios[0]-r_ratios[1])
+                #         radius_index = 2
+                #     elif radius > r_ratios[2]:
+                #         r = (radius-r_ratios[2])/(r_ratios[1]-r_ratios[2])
+                #         radius_index = 1
+                #     else :
+                #         r = radius/r_ratios[2]
 
-                    # now structure theta values
-                    if x == 0:
-                        theta = math.pi/2.0
-                    else:
-                        theta = np.arctan(y*1.0/x)
+                #     # now structure theta values
+                #     if x == 0:
+                #         theta = math.pi/2.0
+                #     else:
+                #         theta = np.arctan(y*1.0/x)
 
-                    if x<0:
-                        theta = theta + math.pi
+                #     if x<0:
+                #         theta = theta + math.pi
 
-                    r_index = radius_index #int(r_total/r_len)
-                    if r_index%2 == 1:
-                        # rotate
-                        theta = (theta + math.pi/4.0) 
+                #     r_index = radius_index
+                #     if r_index%2 == 1:
+                #         # rotate
+                #         theta = (theta + math.pi/4.0) 
 
-                    # focus on 1 small pattern
-                    theta = theta % (math.pi/6.0)
+                #     # focus on 1 small pattern
+                #     theta = theta % (math.pi/6.0)
 
-                    # keep some white space
-                    if (r>0.9) or (r<0.1):
-                        r = -1
-                        theta = 0
-                    else :
-                        #final normalization
-                            r = r/0.8
+                #     # keep some white space
+                #     if (r>0.9) or (r<0.1):
+                #         r = -1
+                #         theta = 0
+                #     else :
+                #         #final normalization
+                #             r = r/0.8
                
 
                 x_mat[yy,xx] = r 
