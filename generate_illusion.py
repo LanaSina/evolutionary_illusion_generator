@@ -753,7 +753,8 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
     elif structure == StructureType.Circles:
         r_rep = 3
         #r_len = int(y_res/(2*r_rep))
-        r_len = [int(0.4*y_res), int(0.25*y_res) + int(0.15)]/2
+        r_len = [int(0.4*y_res/2), int(0.25*y_res/2) + int(0.15*y_res/2)]
+        r_ratios = [0.6,0.2,0] # 3 is not needed
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
         y_range = np.linspace(-1*scaling, scaling, num = y_res)
 
@@ -763,28 +764,40 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         # x = r × cos( θ )
         # y = r × sin( θ )
-        radius_index = 0
+        #radius_index = 0
         for xx in range(x_res):
             # center
             x = xx - (x_res/2)
             for yy in range(y_res):
                 y = yy - (y_res/2)
                 r_total = np.sqrt(x*x + y*y)
+                if r_total > y_res/2:
+                    theta = 0
+                    r = -1
+                else:
                 
-                # limit values to frame
-                r = min(r_total, y_res/2)
-                # it repeats every r_len
-                #r = r % r_len
-                if r > r_len[radius_index]:
-                    radius_index = radius_index +1
-                    r = 0
+                    # limit values to frame
+                    # r = min(r_total, (y_res/2))
+                    # it repeats every r_len
+                    #r = r % r_len
+                    radius = min(1, r_total/(y_res/2))
+                    #print(radius)
+                    radius_index = 0
+                    if radius > r_ratios[0]:
+                        r = (radius-r_ratios[0])/(1-r_ratios[0])
+                        radius_index = 2
+                    elif radius > r_ratios[1]:
+                        r = (radius-r_ratios[1])/(r_ratios[0]-r_ratios[1])
+                        radius_index = 1
+                    else :
+                        r = radius/r_ratios[1]
 
-                # normalize
-                r = r/r_len[radius_index]
+                    # print(radius, r)
 
-                # now structure theta values
-                theta = 0
-                if r_total < y_res/2:
+                    # normalize
+                    #r = r/r_len
+
+                    # now structure theta values
                     if x == 0:
                         theta = math.pi/2.0
                     else:
@@ -801,15 +814,14 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                     # focus on 1 small pattern
                     theta = theta % (math.pi/6.0)
 
-                    # keep some white space
-                    if (r>0.9) or (r<0.1):
-                        r = -1
-                        theta = 0
-                    else :
-                        #final normalization
-                        r = r/0.8
-                else:
-                    r = -1
+                    # # keep some white space
+                    # if (r>0.9) or (r<0.1):
+                    #     r = -1
+                    #     theta = 0
+                    # else :
+                    #     #final normalization
+                    #         r = r/0.8
+               
 
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
