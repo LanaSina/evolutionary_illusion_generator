@@ -564,21 +564,45 @@ def get_vectors(image_path, model_name, w, h):
     return vectors
 
 
+# todo: use in get_grid
 # fill carthesian grids with polar coordinates
 # r_len = repetition length
 # xx yy cartesian x and y, origin relative to whole grid
 # x,y coordinates relative to center
 # direction: 1 or -1
-def fill_circle(x, y, xx, yy, rep_len, max_radius, direction):
+def fill_circle(x, y, xx, yy, rep_len, max_radius, direction): #max diameter?
     r_total = np.sqrt(x*x + y*y)
-    # it repeats every r_len
-    r = r_total % rep_len
-    # normalize
-    r = r/rep_len
+    r_ratios = [0.6,0.3,0.1] 
 
-    # now structure theta values
-    theta = 0
-    if r_total < max_radius/2:
+    # limit values to frame
+    if r_total > max_radius/2:
+        theta = 0
+        r = -1
+    else:
+        # it repeats every r_len
+        #r = r % r_len
+        radius = min(1, r_total/(max_radius/2))
+        #print(radius)
+        radius_index = 0
+        if radius > r_ratios[0]:
+            r = (radius-r_ratios[0])/(1-r_ratios[0])
+            radius_index = 3
+        elif radius > r_ratios[1]:
+            r = (radius-r_ratios[1])/(r_ratios[0]-r_ratios[1])
+            radius_index = 2
+        elif radius > r_ratios[2]:
+            r = (radius-r_ratios[2])/(r_ratios[1]-r_ratios[2])
+            radius_index = 1
+        else :
+            r = radius/r_ratios[2]
+
+        if direction<0:
+            r = 1-r
+
+        # normalize
+        #r = r/r_len
+
+        # now structure theta values
         if x == 0:
             theta = math.pi/2.0
         else:
@@ -587,27 +611,25 @@ def fill_circle(x, y, xx, yy, rep_len, max_radius, direction):
         if x<0:
             theta = theta + math.pi
 
-        r_index = int(r_total/rep_len)
+        r_index = radius_index #int(r_total/r_len)
         if r_index%2 == 1:
             # rotate
             theta = (theta + math.pi/4.0) 
 
         # focus on 1 small pattern
         theta = theta % (math.pi/6.0)
-        if direction<0:
-            theta = (math.pi/6.0) - theta
 
-        # # keep some white space
-        if (r>0.8) or (r<0.1):
+        # keep some white space
+        if (r>0.9) or (r<0.1):
             r = -1
             theta = 0
         else :
             #final normalization
-            r = (r-0.1)/0.7
-            # if direction<0:
-            #     r = 1-r
-    else:
-        r = -1
+            r = r/0.8
+
+
+               
+
 
     return r, theta
 
@@ -753,7 +775,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
     elif structure == StructureType.Circles:
         #r_rep = 3
         #r_len = int(y_res/(2*r_rep))
-        r_len = [int(0.4*y_res/2), int(0.25*y_res/2) + int(0.15*y_res/2)]
+        # r_len = [int(0.4*y_res/2), int(0.25*y_res/2) + int(0.15*y_res/2)]
         r_ratios = [0.6,0.3,0.1] 
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
         y_range = np.linspace(-1*scaling, scaling, num = y_res)
