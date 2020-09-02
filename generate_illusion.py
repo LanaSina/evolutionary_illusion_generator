@@ -751,10 +751,10 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         return {"x_mat": x_mat, "y_mat": y_mat} 
 
     elif structure == StructureType.Circles:
-        r_rep = 3
+        #r_rep = 3
         #r_len = int(y_res/(2*r_rep))
         r_len = [int(0.4*y_res/2), int(0.25*y_res/2) + int(0.15*y_res/2)]
-        r_ratios = [0.6,0.2,0] # 3 is not needed
+        r_ratios = [0.6,0.3,0.1] 
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
         y_range = np.linspace(-1*scaling, scaling, num = y_res)
 
@@ -785,12 +785,15 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                     radius_index = 0
                     if radius > r_ratios[0]:
                         r = (radius-r_ratios[0])/(1-r_ratios[0])
-                        radius_index = 2
+                        radius_index = 3
                     elif radius > r_ratios[1]:
                         r = (radius-r_ratios[1])/(r_ratios[0]-r_ratios[1])
+                        radius_index = 2
+                    elif radius > r_ratios[2]:
+                        r = (radius-r_ratios[2])/(r_ratios[1]-r_ratios[2])
                         radius_index = 1
                     else :
-                        r = radius/r_ratios[1]
+                        r = radius/r_ratios[2]
 
                     # print(radius, r)
 
@@ -814,13 +817,13 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                     # focus on 1 small pattern
                     theta = theta % (math.pi/6.0)
 
-                    # # keep some white space
-                    # if (r>0.9) or (r<0.1):
-                    #     r = -1
-                    #     theta = 0
-                    # else :
-                    #     #final normalization
-                    #         r = r/0.8
+                    # keep some white space
+                    if (r>0.9) or (r<0.1):
+                        r = -1
+                        theta = 0
+                    else :
+                        #final normalization
+                            r = r/0.8
                
 
                 x_mat[yy,xx] = r 
