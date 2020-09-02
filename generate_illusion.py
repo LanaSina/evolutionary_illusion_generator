@@ -572,7 +572,7 @@ def get_vectors(image_path, model_name, w, h):
 # direction: 1 or -1
 def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
     r_total = np.sqrt(x*x + y*y)
-    r_ratios = [1,0.6,0.3,0.1,0] 
+    r_ratios = [1,0.5,0.30,0.15,0.05,0] 
     n_ratios = len(r_ratios)
 
     # limit values to frame
