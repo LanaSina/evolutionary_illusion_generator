@@ -572,8 +572,20 @@ def get_vectors(image_path, model_name, w, h):
 # direction: 1 or -1
 def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
     r_total = np.sqrt(x*x + y*y)
-    r_ratios = [1,0.5,0.30,0.15,0.05,0] 
-    n_ratios = len(r_ratios)
+    # r_ratios = [1,0.5,0.30,0.15,0.05,0] 
+    # n_ratios = len(r_ratios)
+
+    n_ratios = 10
+    r_ratios = np.zeros((n_ratios,1))
+    r_ratios[n_ratios-1] = 1
+
+    for i in range(2,n_ratios+1):
+        # print("i, r_ratios-i+1", i, r_ratios[n_ratios-i+1])
+        r_ratios[n_ratios-i] = r_ratios[n_ratios-i+1]*1.5
+
+    # print(r_ratios)
+    r_ratios = r_ratios/r_ratios[0]
+    # print(r_ratios)
 
     # limit values to frame
     theta = 0
@@ -631,9 +643,9 @@ def enhanced_image_grid(x_res, y_res):
     num_points = x_res*y_res
     # coordinates of circle centers
     # 1: one row of circles at each third of the image
-    c_rows = 4
+    c_rows = 3
     # 4 circles per row
-    c_cols = 4
+    c_cols = 3
     y_step = (int) (y_res/c_cols)
     x_step = (int) (x_res/c_cols)
 
@@ -1152,14 +1164,13 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     image.save(image_name)
 
 
-def neat_illusion(output_dir, model_name, config_path, structure, w, h, checkpoint = None):
+def neat_illusion(output_dir, model_name, config_path, structure, w, h, c_dim =3, checkpoint = None):
     repeat = 6
     limit = 1
     half_h = int(h/2)
     size = [w,h]
     channels = [3,48,96,192] #[3,192,384,768] #[3,48,96,192]
     gpu = 0
-    c_dim = 3
 
     best_dir = output_dir
     if not os.path.exists(best_dir):
@@ -1198,6 +1209,8 @@ if __name__ == "__main__":
     parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
     parser.add_argument('--size', '-wh', help='big or small', default="small")
+    parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default="3")
+
 
     args = parser.parse_args()
     output_dir = args.output_dir 
@@ -1226,5 +1239,5 @@ if __name__ == "__main__":
             config += "/neat_configs/default.txt"
         
     print("config", config)
-    neat_illusion(output_dir, args.model,config, args.structure, w, h,args.checkpoint)
+    neat_illusion(output_dir, args.model,config, args.structure, w, h, args.color_space, args.checkpoint,)
 
