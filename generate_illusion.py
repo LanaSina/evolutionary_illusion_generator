@@ -959,7 +959,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
             out_names
         )
         node_func = net_nodes[0]
-        pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
+        pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
         image_array = np.zeros(((w,h,3)))
         pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
@@ -1209,7 +1209,7 @@ if __name__ == "__main__":
     parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
     parser.add_argument('--size', '-wh', help='big or small', default="small")
-    parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default="3")
+    parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default=3, type=int)
 
 
     args = parser.parse_args()
