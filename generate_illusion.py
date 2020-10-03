@@ -678,11 +678,8 @@ def enhanced_image_grid(x_res, y_res):
         for col in range(c_cols):
             index = row*c_cols + col
             direction = 1
-            # if index%2==0:
-            #     direction = -1
-            # print(row, col, index)
-            # x = r × cos( θ )
-            # y = r × sin( θ )
+            if index%2==0:
+                direction = -1
             for xx in range(x_step):
                 # shift coordinate to center of circle
                 real_x = (col*x_step + xx)
@@ -1019,7 +1016,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
 
     print("Predicting illusions...")
     skip = 1
-    extension_duration = 2
+    extension_duration = 30 #2
     # runs repeat x times on the input image, save in result folder
     test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
@@ -1032,9 +1029,10 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     original_vectors = [None] * total_count
     for input_image in images_list:
         index_0 = int(i*(repeat/skip)+ repeat-1)
-        index_1 = index_0+1
+        index_1 = index_0+extension_duration-1
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
         prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+        print(prediction_0,prediction_1)
 
         save_name = output_dir + "/flow/" + str(i).zfill(10) + ".png"
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
@@ -1148,19 +1146,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     e_grid = enhanced_image_grid(e_w, e_h)
     image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config, s_val = -1)
 
-
-    # image = Image.open(images_list[best_illusion])
-    # center = [(int) (w/2), (int) (h/2)]
-    # crop = (center[0]-center[1], 0, center[0]+center[1], h)
-    # print(crop)
-    # image = image.crop(crop)
-    # back_im = Image.new('RGB', (h*2, h*2))
-    # back_im.paste(image, (0, 0))
-    # back_im.paste(ImageOps.mirror(image), (h, 0))
-    # back_im.paste(ImageOps.mirror(image), (0, h))
-    # back_im.paste(image, (h, h))
     image_name = best_dir + "/enhanced.png"
-    # back_im.save(image_name)
     image.save(image_name)
 
 
