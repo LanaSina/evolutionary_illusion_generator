@@ -790,53 +790,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
                 r,theta = fill_circle(x, y, xx, yy, y_res, 1)
 
-                # r_total = np.sqrt(x*x + y*y)
-                # if r_total > y_res/2:
-                #     theta = 0
-                #     r = -1
-                # else:
-                #     # limit values to frame
-                #     radius = min(1, r_total/(y_res/2))
-                #     #print(radius)
-                #     radius_index = 0
-                #     if radius > r_ratios[0]:
-                #         r = (radius-r_ratios[0])/(1-r_ratios[0])
-                #         radius_index = 3
-                #     elif radius > r_ratios[1]:
-                #         r = (radius-r_ratios[1])/(r_ratios[0]-r_ratios[1])
-                #         radius_index = 2
-                #     elif radius > r_ratios[2]:
-                #         r = (radius-r_ratios[2])/(r_ratios[1]-r_ratios[2])
-                #         radius_index = 1
-                #     else :
-                #         r = radius/r_ratios[2]
-
-                #     # now structure theta values
-                #     if x == 0:
-                #         theta = math.pi/2.0
-                #     else:
-                #         theta = np.arctan(y*1.0/x)
-
-                #     if x<0:
-                #         theta = theta + math.pi
-
-                #     r_index = radius_index
-                #     if r_index%2 == 1:
-                #         # rotate
-                #         theta = (theta + math.pi/4.0) 
-
-                #     # focus on 1 small pattern
-                #     theta = theta % (math.pi/6.0)
-
-                #     # keep some white space
-                #     if (r>0.9) or (r<0.1):
-                #         r = -1
-                #         theta = 0
-                #     else :
-                #         #final normalization
-                #             r = r/0.8
-               
-
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
         return {"x_mat": x_mat, "y_mat": y_mat}
@@ -882,9 +835,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                     if r_index%2 == 1:
                         # rotate
                         theta = (theta + math.pi/4.0) 
-
-                    # focus on 1 small pattern
-                    # theta = theta % (math.pi/6.0)
 
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
@@ -1079,8 +1029,9 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
+                min_vectors = ((2*math.pi) / (math.pi/4.0))*3
 
-                if(len(good_vectors)>0): 
+                if(len(good_vectors)>min_vectors): 
                     # get tangent scores
                     score_direction = 0
                     limits = [0, h/2]
