@@ -896,7 +896,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
                 image_array[0:h, 0:w, c] = np.reshape(pixels_np, (h,w))
 
                 c = c + 1
-            img_data = np.array(image_array*255.0, dtype=np.uint8)
+            img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
             image =  Image.fromarray(img_data)#, mode = "HSV")
     else:
         net_nodes = create_cppn(
@@ -909,7 +909,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
         pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
         image_array = np.zeros(((w,h,3)))
-        pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
+        pixels_np = np.round(np.reshape(pixels_np, (w, h)),0) * 255.0
         image_array[:,:,0] = pixels_np
         image_array[:,:,1] = pixels_np
         image_array[:,:,2] = pixels_np
@@ -982,7 +982,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
         index_1 = index_0+extension_duration-1
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
         prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
-        print(prediction_0,prediction_1)
 
         save_name = output_dir + "/flow/" + str(i).zfill(10) + ".png"
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
@@ -1025,11 +1024,12 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strength = 0.4
+                max_strength = 0.8 # 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
                 min_vectors = ((2*math.pi) / (math.pi/4.0))*3
+                #print("min_vectors", min_vectors, len(good_vectors))
 
                 if(len(good_vectors)>min_vectors): 
                     # get tangent scores
