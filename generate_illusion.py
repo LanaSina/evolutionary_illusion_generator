@@ -574,7 +574,7 @@ def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
     # n_ratios = len(r_ratios)
 
     n_ratios = 10
-    r_ratios = np.zeros((n_ratios,1))
+    r_ratios = np.zeros(n_ratios)
     r_ratios[n_ratios-1] = 1
 
     for i in range(2,n_ratios+1):
@@ -633,7 +633,6 @@ def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
 
 def enhanced_image_grid(x_res, y_res):
 
-    r_mat = None 
     x_mat = None
     y_mat = None
     scaling = 10
@@ -878,26 +877,30 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
     #or h w ??
 
     if(c_dim>1):
-            image_array = np.zeros(((w,h,c_dim)))
-            c = 0
-            net_nodes = create_cppn(
-                genome,
-                config,
-                leaf_names,
-                out_names
-            )
-            for node_func in net_nodes:
-                if(c>=3):
-                    break
+        image_array = np.zeros(((h,w,c_dim)))
+        c = 0
+        net_nodes = create_cppn(
+            genome,
+            config,
+            leaf_names,
+            out_names
+        )
 
-                pixels = node_func(x=inp_x, y=inp_y)
-                pixels_np = pixels.numpy()
-            
-                image_array[0:h, 0:w, c] = np.reshape(pixels_np, (h,w))
+        for node_func in net_nodes:
+            if(c>=3):
+                break
 
-                c = c + 1
-            img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
-            image =  Image.fromarray(img_data)#, mode = "HSV")
+            pixels = node_func(x=inp_x, y=inp_y)
+            pixels_np = pixels.numpy()
+            image_array[:,:, c] = np.reshape(pixels_np, (h,w))
+            for x in range(h):
+                for y in range(w):
+                    if x_dat[x][y] == -1:
+                        image_array[x, y, c] = 1 #white
+            c = c + 1
+
+        img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
+        image =  Image.fromarray(img_data)#, mode = "HSV")
     else:
         image_array = np.zeros(((w,h)))
         net_nodes = create_cppn(
@@ -961,7 +964,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             image.save(image_name, "PNG")
 
             image = np.asarray(Image.open(image_name))
-            print(image.size)
 
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
@@ -976,7 +978,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
                 extension_start = repeat, extension_duration = extension_duration,
-                reset_at = repeat+extension_duration, verbose = 0
+                reset_at = repeat+extension_duration, verbose = 0, c_dim = c_dim
                 )
     # calculate flows
     print("Calculating flows...")
