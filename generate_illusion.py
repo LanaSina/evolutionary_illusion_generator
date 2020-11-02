@@ -922,13 +922,12 @@ def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
 # population:  [id, net]
-def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_dim=3, best_dir = "."):
+def get_fitnesses_neat(structure, population, model_name, config, w, h, channels, id=0, c_dim=3, best_dir = "."):
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
     repeat = 20
     half_h = int(h/2)
     size = [w,h]
-    channels = [3,48,96,192]
     gpu = 0
 
     prediction_dir = output_dir + "/prediction/"
@@ -966,7 +965,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
 
     print("Predicting illusions...")
     skip = 1
-    extension_duration = 30 #2
+    extension_duration = 2 #2
     # runs repeat x times on the input image, save in result folder
     test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
@@ -983,7 +982,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
         prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
 
-        save_name = output_dir + "/flow/" + str(i).zfill(10) + ".png"
+        save_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
@@ -1024,7 +1023,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strength = 0.8 # 0.4
+                max_strength = 0.4 # 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
@@ -1086,7 +1085,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
     index = int(best_illusion*(repeat/skip) + repeat-1)
-    image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
+    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
@@ -1101,12 +1100,11 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, id=0, c_
     image.save(image_name)
 
 
-def neat_illusion(output_dir, model_name, config_path, structure, w, h, c_dim =3, checkpoint = None):
+def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None):
     repeat = 6
     limit = 1
     half_h = int(h/2)
     size = [w,h]
-    channels = [3,48,96,192] #[3,192,384,768] #[3,48,96,192]
     gpu = 0
 
     best_dir = output_dir
@@ -1119,7 +1117,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, c_dim =3
                          config_path)
 
     def eval_genomes(genomes, config):
-        get_fitnesses_neat(structure, genomes, model_name, config, w, h, c_dim=c_dim, best_dir=best_dir)
+        get_fitnesses_neat(structure, genomes, model_name, config, w, h, channels, c_dim=c_dim, best_dir=best_dir)
 
     checkpointer = neat.Checkpointer(100)
 
@@ -1137,6 +1135,14 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, c_dim =3
 
     # Run for up to x generations.
     winner = p.run(eval_genomes, 300)
+    
+
+def string_to_intarray(string_input):
+    array = string_input.split(',')
+    for i in range(len(array)):
+        array[i] = int(array[i])
+
+    return array
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='generate illusions')
@@ -1147,6 +1153,10 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
     parser.add_argument('--size', '-wh', help='big or small', default="small")
     parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default=3, type=int)
+
+    # [1,16,32,64]
+    # 3,48,96,192
+    parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
 
 
     args = parser.parse_args()
@@ -1176,5 +1186,5 @@ if __name__ == "__main__":
             config += "/neat_configs/default.txt"
         
     print("config", config)
-    neat_illusion(output_dir, args.model,config, args.structure, w, h, args.color_space, args.checkpoint,)
+    neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels), args.color_space, args.checkpoint)
 
