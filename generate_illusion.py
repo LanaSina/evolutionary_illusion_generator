@@ -127,8 +127,6 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
     # max var is 1
     score = ((1 - var_x) + mean_x + (1-mean_y))/3
     # print("score", score)
-
-
     return score
 
 
@@ -877,8 +875,10 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
     inp_x = torch.tensor(x_dat.flatten())
     inp_y = torch.tensor(y_dat.flatten())
    
+    #or h w ??
+
     if(c_dim>1):
-            image_array = np.zeros(((h,w,3)))
+            image_array = np.zeros(((w,h,c_dim)))
             c = 0
             net_nodes = create_cppn(
                 genome,
@@ -899,6 +899,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
             img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
             image =  Image.fromarray(img_data)#, mode = "HSV")
     else:
+        image_array = np.zeros(((w,h)))
         net_nodes = create_cppn(
             genome,
             config,
@@ -908,13 +909,15 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
         node_func = net_nodes[0]
         pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
-        image_array = np.zeros(((w,h,3)))
+        #image_array = np.zeros(((w,h,c_dim))) # (warning 1) c_dim here should be 3 if using a color prednet model as black and white...
         pixels_np = np.round(np.reshape(pixels_np, (w, h)),0) * 255.0
-        image_array[:,:,0] = pixels_np
-        image_array[:,:,1] = pixels_np
-        image_array[:,:,2] = pixels_np
+        # same
+        image_array[:,:] = pixels_np
+        # image_array[:,:,1] = pixels_np
+        # image_array[:,:,2] = pixels_np
         img_data = np.array(image_array, dtype=np.uint8)
-        image =  Image.fromarray(np.reshape(img_data,(h,w,3)))
+        image =  Image.fromarray(img_data , 'L')
+        #Image.fromarray(np.reshape(img_data,(h,w,3))) 
 
     return image
 
@@ -953,9 +956,12 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             index = i*pertype_count+j
             image = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val)
 
-            # save color image
+            # save  image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
             image.save(image_name, "PNG")
+
+            image = np.asarray(Image.open(image_name))
+            print(image.size)
 
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
@@ -1135,7 +1141,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels
 
     # Run for up to x generations.
     winner = p.run(eval_genomes, 300)
-    
+
 
 def string_to_intarray(string_input):
     array = string_input.split(',')
@@ -1153,7 +1159,6 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
     parser.add_argument('--size', '-wh', help='big or small', default="small")
     parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default=3, type=int)
-
     # [1,16,32,64]
     # 3,48,96,192
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
