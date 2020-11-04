@@ -867,7 +867,8 @@ def get_fidelity(input_image_path, prediction_image_path):
     return 1-err
 
 
-def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1):
+# bg = background, 1 for white 0 for black
+def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1):
    
     # why twice???
     out_names = ["r0","g0","b0","r1","g1","b1"]
@@ -899,7 +900,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
             for x in range(h):
                 for y in range(w):
                     if x_dat[x][y] == -1:
-                        image_array[x, y, c] = 1 #white
+                        image_array[x, y, c] = bg #white or black
             c = c + 1
 
         # for no shading
@@ -924,6 +925,10 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
         # print(pixels_np.shape)
         # same
         image_array = pixels_np
+        for x in range(h):
+            for y in range(w):
+                if x_dat[x][y] == -1:
+                    image_array[x,y] = bg
         img_data = np.array(image_array, dtype=np.uint8)
         image =  Image.fromarray(img_data , 'L')
         #Image.fromarray(np.reshape(img_data,(h,w,3))) 
@@ -963,11 +968,14 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         for s in range(0,pertype_count):
             s_val = -1 + s*s_step
             index = i*pertype_count+j
-            image = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val)
+            image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val)
+            image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
             # save  image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
-            image.save(image_name, "PNG")
+            image_whitebg.save(image_name, "PNG")
+            image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
+            image_blackbg.save(image_name, "PNG")
 
             image = np.asarray(Image.open(image_name))
 
