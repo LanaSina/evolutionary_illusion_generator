@@ -899,7 +899,9 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
                         image_array[x, y, c] = 1 #white
             c = c + 1
 
-        img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
+        # for no shading
+        # img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
+        img_data = np.array(image_array*255.0, dtype=np.uint8)
         image =  Image.fromarray(img_data)#, mode = "HSV")
     else:
         image_array = np.zeros(((w,h)))
@@ -913,7 +915,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1)
         pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
         #image_array = np.zeros(((w,h,c_dim))) # (warning 1) c_dim here should be 3 if using a color prednet model as black and white...
-        pixels_np = np.round(np.reshape(pixels_np, (w, h)),0) * 255.0
+        pixels_np = np.reshape(pixels_np, (w, h)),0 * 255.0
         # same
         image_array[:,:] = pixels_np
         # image_array[:,:,1] = pixels_np
