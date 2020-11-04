@@ -600,8 +600,8 @@ def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
                 radius_index = n_ratios-i-1
                 break;
 
-        if direction<0:
-            r = 1-r
+        # if direction<0:
+        #     r = 1-r
 
         # now structure theta values
         if x == 0:
@@ -619,6 +619,9 @@ def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
 
         # focus on 1 small pattern
         theta = theta % (math.pi/6.0)
+
+        if direction<0:
+            theta = (math.pi/6.0) - theta
 
         # keep some white space
         if (r>0.9) or (r<0.1):
