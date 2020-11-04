@@ -921,7 +921,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         # print(pixels_np.shape)
         #image_array = np.zeros(((w,h,c_dim))) # (warning 1) c_dim here should be 3 if using a color prednet model as black and white...
         # pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
-        pixels_np = np.reshape(pixels_np, (h, w)) * 255.0
+        pixels_np = np.reshape(pixels_np, (h, w)) 
         # print(pixels_np.shape)
         # same
         image_array = pixels_np
@@ -929,7 +929,8 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
             for y in range(w):
                 if x_dat[x][y] == -1:
                     image_array[x,y] = bg
-        img_data = np.array(image_array, dtype=np.uint8)
+
+        img_data = np.array(image_array*255.0, dtype=np.uint8)
         image =  Image.fromarray(img_data , 'L')
         #Image.fromarray(np.reshape(img_data,(h,w,3))) 
 
@@ -969,13 +970,13 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             s_val = -1 + s*s_step
             index = i*pertype_count+j
             image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val)
-            image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
+            # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
             # save  image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
             image_whitebg.save(image_name, "PNG")
-            image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
-            image_blackbg.save(image_name, "PNG")
+            # image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
+            # image_blackbg.save(image_name, "PNG")
 
             image = np.asarray(Image.open(image_name))
 
@@ -1091,17 +1092,19 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     i = 0
     best_score = 0
     best_illusion = 0
+    best_genome = None
     for genome_id, genome in population:
         genome.fitness = scores[i][1]
         if (scores[i][1]> best_score):
             best_illusion = i
             best_score = scores[i][1]
+            best_genome = genome
         i = i+1
 
     # save best illusion
-    image_name = images_list[best_illusion]
-    move_to_name = best_dir + "/best_bw.png"
-    shutil.copy(image_name, move_to_name)
+    # image_name = images_list[best_illusion]
+    # move_to_name = best_dir + "/best_bw.png"
+    # shutil.copy(image_name, move_to_name)
     print("best", image_name, best_illusion)
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best.png"
@@ -1111,12 +1114,15 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
-
+    image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
+    image_name = best_dir + "/best_black_bg.png"
+    image_blackbg.save(image_name, "PNG")
+    
     # create enhanced image
     e_w = 800
     e_h = 800
     e_grid = enhanced_image_grid(e_w, e_h)
-    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config, s_val = -1)
+    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config, s_val = -1, bg = 0)
 
     image_name = best_dir + "/enhanced.png"
     image.save(image_name)
