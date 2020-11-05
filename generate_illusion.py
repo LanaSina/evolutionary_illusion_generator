@@ -868,7 +868,7 @@ def get_fidelity(input_image_path, prediction_image_path):
 
 
 # bg = background, 1 for white 0 for black
-def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1):
+def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1, gradient = 1):
    
     # why twice???
     out_names = ["r0","g0","b0","r1","g1","b1"]
@@ -905,6 +905,9 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
 
         # for no shading
         # img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
+        if gradient==0:
+            image_array = np.round(image_array)
+
         img_data = np.array(image_array*255.0, dtype=np.uint8)
         image =  Image.fromarray(img_data)#, mode = "HSV")
     else:
@@ -930,6 +933,9 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
                 if x_dat[x][y] == -1:
                     image_array[x,y] = bg
 
+        if gradient == 0:
+            image_array = np.round(image_array)
+
         img_data = np.array(image_array*255.0, dtype=np.uint8)
         image =  Image.fromarray(img_data , 'L')
         #Image.fromarray(np.reshape(img_data,(h,w,3))) 
@@ -940,7 +946,9 @@ def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
 # population:  [id, net]
-def get_fitnesses_neat(structure, population, model_name, config, w, h, channels, id=0, c_dim=3, best_dir = "."):
+def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
+    id=0, c_dim=3, best_dir = ".", gradient = 1):
+
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
     repeat = 20
@@ -969,7 +977,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         for s in range(0,pertype_count):
             s_val = -1 + s*s_step
             index = i*pertype_count+j
-            image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val)
+            image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config,
+                s_val = s_val, gradient=gradient)
             # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
             # save  image
@@ -1114,7 +1123,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
-    image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
+    image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
+        s_val = s_val, bg = 0, gradient=gradient)
     image_name = best_dir + "/best_black_bg.png"
     image_blackbg.save(image_name, "PNG")
     
@@ -1122,13 +1132,14 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     e_w = 800
     e_h = 800
     e_grid = enhanced_image_grid(e_w, e_h)
-    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config, s_val = -1, bg = 0)
+    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
+        s_val = -1, bg = 0, gradient=gradient)
 
     image_name = best_dir + "/enhanced.png"
     image.save(image_name)
 
 
-def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None):
+def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1):
     repeat = 6
     limit = 1
     half_h = int(h/2)
@@ -1145,7 +1156,8 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels
                          config_path)
 
     def eval_genomes(genomes, config):
-        get_fitnesses_neat(structure, genomes, model_name, config, w, h, channels, c_dim=c_dim, best_dir=best_dir)
+        get_fitnesses_neat(structure, genomes, model_name, config, w, h, channels,
+            c_dim=c_dim, best_dir=best_dir, gradient=gradient)
 
     checkpointer = neat.Checkpointer(100)
 
@@ -1184,6 +1196,7 @@ if __name__ == "__main__":
     # [1,16,32,64]
     # 3,48,96,192
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
+    parser.add_argument('--gradient', '-g', default=0, type=int, help='1 to use gradients, 0 for pure colors')
 
 
     args = parser.parse_args()
@@ -1213,5 +1226,7 @@ if __name__ == "__main__":
             config += "/neat_configs/default.txt"
         
     print("config", config)
-    neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels), args.color_space, args.checkpoint)
+    print("gradient", args.gradient)
+    neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
+        args.color_space, args.checkpoint, args.gradient)
 
