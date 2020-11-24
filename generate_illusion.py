@@ -774,8 +774,8 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         x_mat = np.matmul(x_reverse, x_range.reshape((1, x_res)))
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        x_mat = np.tile(x_mat.flatten(), 1).reshape(1, num_points, 1)
-        y_mat = np.tile(y_mat.flatten(), 1).reshape(1, num_points, 1)
+        #x_mat = np.tile(x_mat.flatten(), 1)#.reshape(1, num_points, 1)
+        #y_mat = np.tile(y_mat.flatten(), 1)#.reshape(1, num_points, 1)
 
         return {"x_mat": x_mat, "y_mat": y_mat} 
 
@@ -908,6 +908,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
             pixels = node_func(x=inp_x, y=inp_y)
             pixels_np = pixels.numpy()
             image_array[:,:, c] = np.reshape(pixels_np, (h,w))
+
             for x in range(h):
                 for y in range(w):
                     if x_dat[x][y] == -1:
@@ -936,7 +937,6 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         #image_array = np.zeros(((w,h,c_dim))) # (warning 1) c_dim here should be 3 if using a color prednet model as black and white...
         # pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
         pixels_np = np.reshape(pixels_np, (h, w)) 
-        # print(pixels_np.shape)
         # same
         image_array = pixels_np
         for x in range(h):
