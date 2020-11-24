@@ -15,7 +15,6 @@ from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
 from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
 from random import random, randrange
 import shutil
-import shutil
 import torch
 
 
@@ -128,16 +127,14 @@ def horizontal_symmetry_score(vectors, limits = [0,60]):
     # max var is 1
     score = ((1 - var_x) + mean_x + (1-mean_y))/3
     # print("score", score)
-
-
     return score
 
 
 # returns the agreement and disagreement betwen vectors
-def swarm_score(vectors):
-    max_distance = 10 #px
-    agreement = 0
-    discord = 0
+def swarm_score(vectors,w, h):
+    max_distance = 100 #px
+    distance_2 = 50
+    score = 0
     n = len(vectors)
 
     # normalize vectors
@@ -156,10 +153,18 @@ def swarm_score(vectors):
         x = norm_vectors[:,0]-v_a[0]
         y = norm_vectors[:,1]-v_a[1]
         # [0 .. 1]
-        distance_factors = (np.multiply(x,x) + np.multiply(y,y))
-        distance_factors = distance_factors/(max_distance*max_distance)
-        distance_factors = an_array = np.where(distance_factors > 1, 1, distance_factors)
-        # print("distance_factors", distance_factors)
+        distances = (np.multiply(x,x) + np.multiply(y,y))
+        distance_factors = distances/(max_distance*max_distance)
+        distance_factors = np.where(distance_factors > 1, 1, distance_factors)
+        # 1 where vectors are close
+        close = 1 - np.where(distance_factors < 1, 0, distance_factors)
+        # close = 1-distance_factors
+
+        # distance_factors = (np.multiply(x,x) + np.multiply(y,y))
+        # distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
+        # distance_factors = np.where(distance_factors < max_distance*max_distance, distance_2*distance_2, distance_factors)
+        # far = 1 - (distance_factors/(distance_2*distance_2))
+        # #print("far", far)
 
         # vectors orientation
         # alpha = acos(x)
@@ -167,30 +172,34 @@ def swarm_score(vectors):
         angle_diff = abs(angles-v_angle)
         angle_diff = angle_diff % 2*math.pi
         angle_diff = angle_diff/(2*math.pi)
-        #print("angle_diff ", angle_diff)
-        temp = np.multiply(distance_factors,abs(angle_diff-1))
-        temp = np.sum(temp)/n
-        #print("temp ", temp)
-        agreement = agreement + temp
-        temp = np.multiply(distance_factors,angle_diff)
-        discord = discord + np.sum(temp)/n
+        # v_agreement = np.multiply(close,abs(1-angle_diff))
+        # v_discord = np.multiply(far,abs(angle_diff))
 
-    result = [agreement/n, discord/n]
+        # # optimize for a balance of extreme values
+        # s1 = sum(v_agreement)/(2*math.pi*max_distance) 
+        # s2 = sum(v_discord)/(2*math.pi*(distance_2- max_distance))
+        # temp = s1*s2
 
-    return result
+        # oprimal deviation: completely opposite at 100 px away (distance factor  = 1)
+        optimal = (v_angle + distance_factors*math.pi)%2*math.pi
+        loss = close*abs(angles-optimal)
+        temp = math.pi - (sum(loss)/n)
+        score = score + (temp/math.pi)
 
+
+    return score/n
 
 # rotate all vectors to align their origin on x axis
 # calculate the mean and variance of normalized vectors
 # returns a high score if the variance is low (ie the vectors are symmetric)
 # limits = radius limits
-def rotation_symmetry_score(vectors, limits = None, original_filename="temp.png"):
+def rotation_symmetry_score(vectors, w, h, limits = None, original_filename="temp.png"):
 
     # fill matrix of vectors
     rotated_vectors = np.zeros((len(vectors), 4))
     distances = np.zeros((len(vectors)))
     count = 0
-    center = [160/2, 120/2]
+    center = [w/2, h/2]
     for v in vectors:
         # change coordinates to center
         vc = [v[0]-center[0], v[1]-center[1]]
@@ -435,14 +444,12 @@ def divergence_convergence_score(vectors, width, height):
 # b = 1 if all vectors are tangent
 # 1 -> clockwise
 # -1 0-> counter clockwise
-def tangent_ratio(vectors, limits = None):
+def tangent_ratio(vectors, w, h, limits = None):
     # we want to know the angle between
     # a radius of the circle at the center of the image
     # and the motion vectors
 
     # center
-    w = 160
-    h = 120
     c = [w/2.0, h/2.0]
 
     # scores
@@ -518,35 +525,206 @@ def tangent_ratio(vectors, limits = None):
 
     return [direction, abs(mean_alignment)]
 
+def get_vectors(image_path, model_name, w, h):
+    skip = 1
+    extension_duration = 2
+    repeat = 20
+    half_h = int(h/2)
+    size = [w,h]
+    channels = [3,48,96,192]
+    gpu = 0
+
+    output_dir = "test/" 
+    prediction_dir = output_dir + "/prediction/"
+    if not os.path.exists(prediction_dir):
+        os.makedirs(prediction_dir)
+
+    
+    repeated_images_list = [image_path]*repeat
+    # print("list", repeated_images_list)
+
+    # runs repeat x times on the input image, save in result folder
+    test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
+                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
+                extension_start = repeat, extension_duration = extension_duration,
+                reset_at = repeat+extension_duration, verbose = 0
+                )
+
+    extended = prediction_dir + str(repeat+1).zfill(10) + "_extended.png"
+    # calculate flows
+    print("Calculating flows...", extended)
+    vectors = [None] 
+
+    results = lucas_kanade(image_path, extended, prediction_dir, save=True, verbose = 0, save_name = "flow.png")
+    if results["vectors"]:
+        vectors = np.asarray(results["vectors"])
+
+    return vectors
 
 
-def generate_random_image(w, h):
-    image = np.random.randint(256, size=(w, h, 3))
-    return np.uint8(image)
+# todo: use in get_grid
+# fill carthesian grids with polar coordinates
+# r_len = repetition length
+# xx yy cartesian x and y, origin relative to whole grid
+# x,y coordinates relative to center
+# direction: 1 or -1
+def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Circles): #max diameter?
+    r_total = np.sqrt(x*x + y*y)
 
-def random_modify(image_path):
-    image = np.array(Image.open(image_path).convert('RGB'))
+    n_ratios = 10
+    r_ratios = np.zeros(n_ratios)
+    r_ratios[n_ratios-1] = 1
 
-    w = image.shape[0]
-    h = image.shape[1]
-    c_range = 50
+    for i in range(2,n_ratios+1):
+        r_ratios[n_ratios-i] = r_ratios[n_ratios-i+1]*1.5
 
-    for x in range(0,500):
-        i = randrange(w)
-        j = randrange(h)
-        color = randrange(3)
-        sign = random()
+    r_ratios = r_ratios/r_ratios[0]
 
-        pixel = image[i,j]
-        if sign>=0.5:
-            pixel[color] = pixel[color] + randrange(c_range)
-            if pixel[color] > 255 : pixel[color] = 255
-        else:
-            pixel[color] = pixel[color] - randrange(c_range) 
-            if pixel[color] < 0  : pixel[color] = 0
+    # limit values to frame
+    theta = 0
+    r = -1
+    if r_total <= max_radius/2:
+        # it repeats every r_len
+        radius = min(1, r_total/(max_radius/2))
+        
+        radius_index = 0
+        for i in range(1,n_ratios-1):
+            if radius > r_ratios[i]:
+                r = (radius-r_ratios[i])/(r_ratios[i-1]-r_ratios[i])
+                radius_index = n_ratios-i-1
+                break;
 
-    return image
+        if structure == StructureType.Circles:
+            # now structure theta values
+            if x == 0:
+                theta = math.pi/2.0
+            else:
+                theta = np.arctan(y*1.0/x)
 
+            if x<0:
+                theta = theta + math.pi
+
+            r_index = radius_index 
+            if r_index%2 == 1:
+                # rotate
+                theta = (theta + math.pi/4.0) 
+
+            # focus on 1 small pattern
+            theta = theta % (math.pi/6.0)
+
+            if direction<0:
+                theta = (math.pi/6.0) - theta
+
+        elif structure == StructureType.CirclesFree:
+
+            # now structure theta values
+            if x == 0:
+                theta = math.pi/2.0
+            else:
+                theta = np.arctan(y*1.0/x)
+
+            if x<0:
+                theta = theta + math.pi
+
+            r_index = radius_index
+            if r_index%2 == 1:
+                # rotate
+                theta = (theta + math.pi/4.0) 
+
+            if direction<0:
+                theta = - theta
+
+        # keep some white space
+        if (r>0.9) or (r<0.1):
+            r = -1
+            theta = 0
+        else :
+            #final normalization
+            r = r/0.8
+
+    return r, theta
+
+
+def enhanced_image_grid(x_res, y_res, structure):
+
+    x_mat = None
+    y_mat = None
+    scaling = 10
+
+    num_points = x_res*y_res
+    # coordinates of circle centers
+    # 1: one row of circles at each third of the image
+    c_rows = 3
+    # 4 circles per row
+    c_cols = 3
+    y_step = (int) (y_res/c_cols)
+    x_step = (int) (x_res/c_cols)
+
+    # overlaid cicrles: 2 rows of 3 circles
+    sub_rows = c_rows-1
+    sub_cols = c_cols-1
+    # coordinates
+    centers = [None]*(c_rows*c_cols + sub_rows*sub_cols)
+
+    for y in range(c_rows):
+        for x in range(c_cols):
+            index = y*c_cols + x
+            centers[index] = [x_step*x + x_step/2, y_step*y + y_step/2]
+
+    for y in range(sub_rows):
+        for x in range(sub_cols):
+            index = c_rows*c_cols + y*sub_cols + x
+            centers[index] = [x_step*x + x_step, y_step*y + x_step]
+
+    # radial repetition
+    r_rep = 3
+    r_len = int(y_step/(2*r_rep))
+    x_range = np.linspace(-1*scaling, scaling, num = x_res)
+    y_range = np.linspace(-1*scaling, scaling, num = y_res)
+
+    y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
+    x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
+
+    for row in range(c_rows):
+        for col in range(c_cols):
+            index = row*c_cols + col
+            direction = 1
+            if index%2==0:
+                direction = -1
+            for xx in range(x_step):
+                # shift coordinate to center of circle
+                real_x = (col*x_step + xx)
+                x =  real_x - centers[index][0]
+                for yy in range(y_step):
+                    real_y = (row*y_step + yy)
+                    y =  real_y - centers[index][1]
+                    r, theta = fill_circle(x, y, real_x, real_y, y_step, direction, structure)
+                    x_mat[real_y,real_x] = r 
+                    y_mat[real_y,real_x] = theta 
+
+
+    # secondary layer of circles
+    for row in range(sub_rows):
+        for col in range(sub_cols):
+            index = c_rows*c_cols + row*sub_rows + col
+            direction = 1
+            if index%2==0:
+                direction = -1
+            for xx in range(x_step):
+                # shift coordinate to center 
+                real_x = (col*x_step + xx) + (int) (x_step/2)
+                x =  real_x - centers[index][0]
+                for yy in range(y_step):
+                    real_y = (row*y_step + yy) + (int) (y_step/2)
+                    y =  real_y - centers[index][1]
+                    r_total = np.sqrt(x*x + y*y)
+                    if r_total < x_step/2:
+                        r, theta = fill_circle(x, y, real_x, real_y, y_step, direction, structure)
+                        x_mat[real_y,real_x] = r 
+                        y_mat[real_y,real_x] = theta 
+
+        
+    return {"x_mat": x_mat, "y_mat": y_mat}
 
 def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
@@ -602,59 +780,26 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         return {"x_mat": x_mat, "y_mat": y_mat} 
 
     elif structure == StructureType.Circles:
-        r_rep = 3
-        r_len = int(y_res/(2*r_rep))
+        #r_rep = 3
+        #r_len = int(y_res/(2*r_rep))
+        # r_len = [int(0.4*y_res/2), int(0.25*y_res/2) + int(0.15*y_res/2)]
+        r_ratios = [0.6,0.3,0.1] 
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
         y_range = np.linspace(-1*scaling, scaling, num = y_res)
 
  
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-
         # x = r × cos( θ )
         # y = r × sin( θ )
+        #radius_index = 0
         for xx in range(x_res):
             # center
             x = xx - (x_res/2)
             for yy in range(y_res):
                 y = yy - (y_res/2)
-                r_total = np.sqrt(x*x + y*y)
-                
-                # limit values to frame
-                r = min(r_total, y_res/2)
-                # it repeats every r_len
-                r = r % r_len
-                # normalize
-                r = r/r_len
 
-                # now structure theta values
-                theta = 0
-                if r_total < y_res/2:
-                    if x == 0:
-                        theta = math.pi/2.0
-                    else:
-                        theta = np.arctan(y*1.0/x)
-
-                    if x<0:
-                        theta = theta + math.pi
-
-                    r_index = int(r_total/r_len)
-                    if r_index%2 == 1:
-                        # rotate
-                        theta = (theta + math.pi/4.0) 
-
-                    # focus on 1 small pattern
-                    theta = theta % (math.pi/6.0)
-
-                    # keep some white space
-                    if (r>0.9) or (r<0.1):
-                        r = -1
-                        theta = 0
-                    else :
-                        #final normalization
-                        r = r/0.8
-                else:
-                    r = -1
+                r,theta = fill_circle(x, y, xx, yy, y_res, 1)
 
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
@@ -702,9 +847,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                         # rotate
                         theta = (theta + math.pi/4.0) 
 
-                    # focus on 1 small pattern
-                    # theta = theta % (math.pi/6.0)
-
                 x_mat[yy,xx] = r 
                 y_mat[yy,xx] = theta 
 
@@ -723,17 +865,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
     return {"input_0": x_mat, "input_1": y_mat, "input_2": r_mat} #, s_mat
 
-def fully_connected(input, out_dim, with_bias = True, mat = None):
-    if mat is None:
-        mat = np.random.standard_normal(size = (input.shape[1], out_dim)).astype(np.float32)
-
-    result = np.matmul(input, mat)
-
-    if with_bias == True:
-        bias = np.random.standard_normal(size =(1, out_dim)).astype(np.float32)
-        result += bias * np.ones((input.shape[0], 1), dtype = np.float32)
-
-    return result
 
 def get_fidelity(input_image_path, prediction_image_path):
     input_image = np.array(Image.open(input_image_path).convert('RGB'))
@@ -747,43 +878,51 @@ def get_fidelity(input_image_path, prediction_image_path):
     return 1-err
 
 
-def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
-
-    scaling = 10
+# bg = background, 1 for white 0 for black
+def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1, gradient = 1):
    
     # why twice???
     out_names = ["r0","g0","b0","r1","g1","b1"]
-
-    inputs = create_grid(structure, w, h, scaling)
-
     leaf_names = ["x","y"]
     x_dat = inputs["x_mat"]
     y_dat = inputs["y_mat"]
     inp_x = torch.tensor(x_dat.flatten())
     inp_y = torch.tensor(y_dat.flatten())
    
+    #or h w ??
+
     if(c_dim>1):
-            image_array = np.zeros(((h,w,3)))
-            c = 0
-            net_nodes = create_cppn(
-                genome,
-                config,
-                leaf_names,
-                out_names
-            )
-            for node_func in net_nodes:
-                if(c>=3):
-                    break
+        image_array = np.zeros(((h,w,c_dim)))
+        c = 0
+        net_nodes = create_cppn(
+            genome,
+            config,
+            leaf_names,
+            out_names
+        )
 
-                pixels = node_func(x=inp_x, y=inp_y)
-                pixels_np = pixels.numpy()
-            
-                image_array[0:h, 0:w, c] = np.reshape(pixels_np, (h,w))
+        for node_func in net_nodes:
+            if(c>=3):
+                break
 
-                c = c + 1
-            img_data = np.array(image_array*255.0, dtype=np.uint8)
-            image =  Image.fromarray(img_data)#, mode = "HSV")
+            pixels = node_func(x=inp_x, y=inp_y)
+            pixels_np = pixels.numpy()
+            image_array[:,:, c] = np.reshape(pixels_np, (h,w))
+            for x in range(h):
+                for y in range(w):
+                    if x_dat[x][y] == -1:
+                        image_array[x, y, c] = bg #white or black
+            c = c + 1
+
+        # for no shading
+        # img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
+        if gradient==0:
+            image_array = np.round(image_array)
+
+        img_data = np.array(image_array*255.0, dtype=np.uint8)
+        image =  Image.fromarray(img_data)#, mode = "HSV")
     else:
+        image_array = np.zeros(((h,w)))
         net_nodes = create_cppn(
             genome,
             config,
@@ -791,15 +930,26 @@ def get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = 1):
             out_names
         )
         node_func = net_nodes[0]
-        pixels = node_func(x=inp_x, y=inp_y, s = inp_s, r = inp_r)
+        pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
-        image_array = np.zeros(((w,h,3)))
-        pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
-        image_array[:,:,0] = pixels_np
-        image_array[:,:,1] = pixels_np
-        image_array[:,:,2] = pixels_np
-        img_data = np.array(image_array, dtype=np.uint8)
-        image =  Image.fromarray(np.reshape(img_data,(h,w,3)))
+        # print(pixels_np.shape)
+        #image_array = np.zeros(((w,h,c_dim))) # (warning 1) c_dim here should be 3 if using a color prednet model as black and white...
+        # pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
+        pixels_np = np.reshape(pixels_np, (h, w)) 
+        # print(pixels_np.shape)
+        # same
+        image_array = pixels_np
+        for x in range(h):
+            for y in range(w):
+                if x_dat[x][y] == -1:
+                    image_array[x,y] = bg
+
+        if gradient == 0:
+            image_array = np.round(image_array)
+
+        img_data = np.array(image_array*255.0, dtype=np.uint8)
+        image =  Image.fromarray(img_data , 'L')
+        #Image.fromarray(np.reshape(img_data,(h,w,3))) 
 
     return image
 
@@ -807,15 +957,14 @@ def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
 # population:  [id, net]
-def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3, best_dir = "."):
+def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
+    id=0, c_dim=3, best_dir = ".", gradient = 1):
+
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
     repeat = 20
-    w = 160
-    h = 120
     half_h = int(h/2)
     size = [w,h]
-    channels = [3,48,96,192]
     gpu = 0
 
     prediction_dir = output_dir + "/prediction/"
@@ -832,17 +981,24 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     images_list = [None]*total_count
     repeated_images_list = [None]* (total_count + repeat)
     i = 0
+    image_inputs = create_grid(structure, w, h, 10)
     for genome_id, genome in population:
         # traverse latent space
         j = 0
         for s in range(0,pertype_count):
             s_val = -1 + s*s_step
             index = i*pertype_count+j
-            image = get_image_from_cppn(structure, genome, c_dim, w, h, config, s_val = s_val)
+            image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config,
+                s_val = s_val, gradient=gradient)
+            # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
-            # save color image
+            # save  image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
-            image.save(image_name, "PNG")
+            image_whitebg.save(image_name, "PNG")
+            # image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
+            # image_blackbg.save(image_name, "PNG")
+
+            image = np.asarray(Image.open(image_name))
 
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
@@ -852,12 +1008,12 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
 
     print("Predicting illusions...")
     skip = 1
-    extension_duration = 2
+    extension_duration = 2 #2
     # runs repeat x times on the input image, save in result folder
     test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
                 extension_start = repeat, extension_duration = extension_duration,
-                reset_at = repeat+extension_duration, verbose = 0
+                reset_at = repeat+extension_duration, verbose = 0, c_dim = c_dim
                 )
     # calculate flows
     print("Calculating flows...")
@@ -865,11 +1021,11 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     original_vectors = [None] * total_count
     for input_image in images_list:
         index_0 = int(i*(repeat/skip)+ repeat-1)
-        index_1 = index_0+1
+        index_1 = index_0+extension_duration-1
         prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
         prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
 
-        save_name = output_dir + "/flow/" + str(i).zfill(10) + ".png"
+        save_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
         results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
@@ -910,18 +1066,20 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strength = 0.4
+                max_strength = 0.4 # 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
+                min_vectors = ((2*math.pi) / (math.pi/4.0))*3
+                #print("min_vectors", min_vectors, len(good_vectors))
 
-                if(len(good_vectors)>0): 
+                if(len(good_vectors)>min_vectors): 
                     # get tangent scores
                     score_direction = 0
                     limits = [0, h/2]
                     # temp = h/(2*3)
                     # limits = [temp*2, temp*3]
-                    score_direction = rotation_symmetry_score(good_vectors, limits, images_list[index])
+                    score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
                     score_strength = strength_number(good_vectors,max_strength)
                     score_d = 0.7*score_direction + 0.3*score_strength
                     print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
@@ -932,10 +1090,11 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
                 good_vectors = ratio[1]
 
                 if(len(good_vectors)>0): 
-                    score_s = swarm_score(good_vectors)
-                    print("swarm_score", score_s)
-                    score_d = (score_s[0] + score_s[1])/2
-
+                    score_strength = strength_number(good_vectors,max_strength)
+                    score_number = min(len(good_vectors),15)/15
+                    score_s = swarm_score(good_vectors, w, h)
+                    # print("swarm_score", score_s)
+                    score_d = 0.5*score_s + 0.1*score_strength + 0.4*score_number
             else:
                 score_d = inside_outside_score(good_vectors, w, h)
             
@@ -953,50 +1112,50 @@ def get_fitnesses_neat(structure, population, model_name, config, id=0, c_dim=3,
     i = 0
     best_score = 0
     best_illusion = 0
+    best_genome = None
     for genome_id, genome in population:
         genome.fitness = scores[i][1]
         if (scores[i][1]> best_score):
             best_illusion = i
             best_score = scores[i][1]
+            best_genome = genome
         i = i+1
 
     # save best illusion
-    image_name = images_list[best_illusion]
-    move_to_name = best_dir + "/best_bw.png"
-    shutil.copy(image_name, move_to_name)
+    # image_name = images_list[best_illusion]
+    # move_to_name = best_dir + "/best_bw.png"
+    # shutil.copy(image_name, move_to_name)
     print("best", image_name, best_illusion)
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
     index = int(best_illusion*(repeat/skip) + repeat-1)
-    image_name = output_dir + "/flow/" + str(best_illusion).zfill(10) + ".png"
+    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
+
+    image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
+        s_val = s_val, bg = 0, gradient=gradient)
+    image_name = best_dir + "/best_black_bg.png"
+    image_blackbg.save(image_name, "PNG")
+    
     # create enhanced image
-    image = Image.open(images_list[best_illusion])
-    center = [(int) (w/2), (int) (h/2)]
-    crop = (center[0]-center[1], 0, center[0]+center[1], h)
-    print(crop)
-    image = image.crop(crop)
-    back_im = Image.new('RGB', (h*2, h*2))
-    back_im.paste(image, (0, 0))
-    back_im.paste(ImageOps.mirror(image), (h, 0))
-    back_im.paste(ImageOps.mirror(image), (0, h))
-    back_im.paste(image, (h, h))
+    e_w = 800
+    e_h = 800
+    e_grid = enhanced_image_grid(e_w, e_h, structure)
+    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
+        s_val = -1, bg = 0, gradient=gradient)
+
     image_name = best_dir + "/enhanced.png"
-    back_im.save(image_name)
+    image.save(image_name)
 
 
-def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = None):
+def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1):
     repeat = 6
     limit = 1
-    w = 160
-    h = 120
     half_h = int(h/2)
     size = [w,h]
-    channels = [3,48,96,192]
     gpu = 0
-    c_dim = 3
 
     best_dir = output_dir
     if not os.path.exists(best_dir):
@@ -1008,7 +1167,8 @@ def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = N
                          config_path)
 
     def eval_genomes(genomes, config):
-        get_fitnesses_neat(structure, genomes, model_name, config, c_dim=c_dim, best_dir=best_dir)
+        get_fitnesses_neat(structure, genomes, model_name, config, w, h, channels,
+            c_dim=c_dim, best_dir=best_dir, gradient=gradient)
 
     checkpointer = neat.Checkpointer(100)
 
@@ -1027,19 +1187,40 @@ def neat_illusion(output_dir, model_name, config_path, structure, checkpoint = N
     # Run for up to x generations.
     winner = p.run(eval_genomes, 300)
 
+
+def string_to_intarray(string_input):
+    array = string_input.split(',')
+    for i in range(len(array)):
+        array[i] = int(array[i])
+
+    return array
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='optical flow tests')
+    parser = argparse.ArgumentParser(description='generate illusions')
     parser.add_argument('--model', '-m', default='', help='.model file')
     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
     parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
     parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
+    parser.add_argument('--size', '-wh', help='big or small', default="small")
+    parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default=3, type=int)
+    # [1,16,32,64]
+    # 3,48,96,192
+    parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
+    parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
 
 
     args = parser.parse_args()
     output_dir = args.output_dir 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    w = 160
+    h = 120
+    if args.size == "big":
+        w = 640
+        h = 480
+
 
     config = args.config
 
@@ -1056,5 +1237,7 @@ if __name__ == "__main__":
             config += "/neat_configs/default.txt"
         
     print("config", config)
-    neat_illusion(output_dir, args.model,config, args.structure, args.checkpoint)
+    print("gradient", args.gradient)
+    neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
+        args.color_space, args.checkpoint, args.gradient)
 
