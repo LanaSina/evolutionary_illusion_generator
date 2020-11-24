@@ -568,29 +568,23 @@ def get_vectors(image_path, model_name, w, h):
 # xx yy cartesian x and y, origin relative to whole grid
 # x,y coordinates relative to center
 # direction: 1 or -1
-def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
+def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Circles): #max diameter?
     r_total = np.sqrt(x*x + y*y)
-    # r_ratios = [1,0.5,0.30,0.15,0.05,0] 
-    # n_ratios = len(r_ratios)
 
     n_ratios = 10
     r_ratios = np.zeros(n_ratios)
     r_ratios[n_ratios-1] = 1
 
     for i in range(2,n_ratios+1):
-        # print("i, r_ratios-i+1", i, r_ratios[n_ratios-i+1])
         r_ratios[n_ratios-i] = r_ratios[n_ratios-i+1]*1.5
 
-    # print(r_ratios)
     r_ratios = r_ratios/r_ratios[0]
-    # print(r_ratios)
 
     # limit values to frame
     theta = 0
     r = -1
     if r_total <= max_radius/2:
         # it repeats every r_len
-        #r = r % r_len
         radius = min(1, r_total/(max_radius/2))
         
         radius_index = 0
@@ -600,28 +594,45 @@ def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
                 radius_index = n_ratios-i-1
                 break;
 
-        # if direction<0:
-        #     r = 1-r
+        if structure == StructureType.Circles:
+            # now structure theta values
+            if x == 0:
+                theta = math.pi/2.0
+            else:
+                theta = np.arctan(y*1.0/x)
 
-        # now structure theta values
-        if x == 0:
-            theta = math.pi/2.0
-        else:
-            theta = np.arctan(y*1.0/x)
+            if x<0:
+                theta = theta + math.pi
 
-        if x<0:
-            theta = theta + math.pi
+            r_index = radius_index 
+            if r_index%2 == 1:
+                # rotate
+                theta = (theta + math.pi/4.0) 
 
-        r_index = radius_index 
-        if r_index%2 == 1:
-            # rotate
-            theta = (theta + math.pi/4.0) 
+            # focus on 1 small pattern
+            theta = theta % (math.pi/6.0)
 
-        # focus on 1 small pattern
-        theta = theta % (math.pi/6.0)
+            if direction<0:
+                theta = (math.pi/6.0) - theta
 
-        if direction<0:
-            theta = (math.pi/6.0) - theta
+        elif structure == StructureType.CirclesFree:
+
+            # now structure theta values
+            if x == 0:
+                theta = math.pi/2.0
+            else:
+                theta = np.arctan(y*1.0/x)
+
+            if x<0:
+                theta = theta + math.pi
+
+            r_index = radius_index
+            if r_index%2 == 1:
+                # rotate
+                theta = (theta + math.pi/4.0) 
+
+            if direction<0:
+                theta = - theta
 
         # keep some white space
         if (r>0.9) or (r<0.1):
@@ -634,7 +645,7 @@ def fill_circle(x, y, xx, yy, max_radius, direction): #max diameter?
     return r, theta
 
 
-def enhanced_image_grid(x_res, y_res):
+def enhanced_image_grid(x_res, y_res, structure):
 
     x_mat = None
     y_mat = None
@@ -687,7 +698,7 @@ def enhanced_image_grid(x_res, y_res):
                 for yy in range(y_step):
                     real_y = (row*y_step + yy)
                     y =  real_y - centers[index][1]
-                    r, theta = fill_circle(x, y, real_x, real_y, y_step, direction)
+                    r, theta = fill_circle(x, y, real_x, real_y, y_step, direction, structure)
                     x_mat[real_y,real_x] = r 
                     y_mat[real_y,real_x] = theta 
 
@@ -708,12 +719,12 @@ def enhanced_image_grid(x_res, y_res):
                     y =  real_y - centers[index][1]
                     r_total = np.sqrt(x*x + y*y)
                     if r_total < x_step/2:
-                        r, theta = fill_circle(x, y, real_x, real_y, y_step, direction)
+                        r, theta = fill_circle(x, y, real_x, real_y, y_step, direction, structure)
                         x_mat[real_y,real_x] = r 
                         y_mat[real_y,real_x] = theta 
+
         
     return {"x_mat": x_mat, "y_mat": y_mat}
-
 
 def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
@@ -1131,7 +1142,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     # create enhanced image
     e_w = 800
     e_h = 800
-    e_grid = enhanced_image_grid(e_w, e_h)
+    e_grid = enhanced_image_grid(e_w, e_h, structure)
     image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
         s_val = -1, bg = 0, gradient=gradient)
 
@@ -1196,7 +1207,7 @@ if __name__ == "__main__":
     # [1,16,32,64]
     # 3,48,96,192
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
-    parser.add_argument('--gradient', '-g', default=0, type=int, help='1 to use gradients, 0 for pure colors')
+    parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
 
 
     args = parser.parse_args()
