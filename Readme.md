@@ -25,7 +25,10 @@ EIGen outputs both the current best pattern and the expected motion vectors.
 ![circles](gallery/centipede.png)
 ![vectors](gallery/centipede_vectors.png)
 
-<img src="gallery/succulents.png"  width="250"> <img src="gallery/00e.png"  width="250"> <img src="gallery/01e.png"  width="250"> <img src="gallery/02e.png"  width="250">
+<img src="gallery/succulents.png"  width="250"> <img src="gallery/small_bw_1.png"  width="250"> <img src="gallery/small_bw_3.png"  width="250">
+
+![big_color](gallery/color_big.png)
+![big_bw](gallery/big_bw.png)
 
 You can also choose a different structure(bands):
 
