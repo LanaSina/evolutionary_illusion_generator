@@ -744,13 +744,12 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         y_range = np.tile(to_tile, y_rep)
        # x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
-        x_rep = 10
+        x_rep = 5
         x_len = int(x_res/x_rep) 
         sc = scaling/x_rep
         a = np.linspace(-1*sc, sc, num = x_len)
         x_range = np.tile(a, x_rep)
         # reverse the x axis 
-        # todo: ,1 not needed
         x_reverse = np.ones((y_res, 1))
         start = y_len
         while start<y_res:
@@ -758,24 +757,17 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
             # top of previous band
             m_start = max(0,start-padding)
             x_reverse[m_start:start] = np.zeros((start-m_start,1))
-            #y_range[m_start:start] = np.zeros((start-m_start))
 
             # bottom of current band
             stop = min(y_res, start+y_len)
             m_start = max(stop - padding, 0) #max(0,start-padding)
             x_reverse[m_start:stop] = np.zeros((stop-m_start,1))
-            #y_range[m_start:stop] = np.zeros((stop-m_start))
             x_reverse[start:stop] =  -x_reverse[start:stop]
-            # y_range[start:stop] =  -y_range[start:stop]
-
-            
 
             start = start+2*y_len
 
         x_mat = np.matmul(x_reverse, x_range.reshape((1, x_res)))
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        #x_mat = np.tile(x_mat.flatten(), 1)#.reshape(1, num_points, 1)
-        #y_mat = np.tile(y_mat.flatten(), 1)#.reshape(1, num_points, 1)
 
         return {"x_mat": x_mat, "y_mat": y_mat} 
 
