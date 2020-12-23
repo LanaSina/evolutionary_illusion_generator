@@ -193,7 +193,7 @@ def swarm_score(vectors,w, h):
 # calculate the mean and variance of normalized vectors
 # returns a high score if the variance is low (ie the vectors are symmetric)
 # limits = radius limits
-def rotation_symmetry_score(vectors, w, h, limits = None, original_filename="temp.png"):
+def rotation_symmetry_score(vectors, w, h, limits = None):
 
     # fill matrix of vectors
     rotated_vectors = np.zeros((len(vectors), 4))
@@ -923,9 +923,8 @@ def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
 
-def cppn_evolution(population):
+def cppn_evolution(population, s_step = 2):
     # latent space coarse graining (none)
-    s_step = 2
     pertype_count = int((2/s_step))
     total_count = len(population)*pertype_count
     images_list = [None]*total_count
@@ -960,7 +959,7 @@ def cppn_evolution(population):
 
 
 def get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
-    repeat, c_dim):
+    repeat, c_dim, total_count):
 
     prediction_dir = output_dir + "/prediction/"
     if not os.path.exists(prediction_dir):
@@ -995,10 +994,11 @@ def get_flows(images_list, model_name, repeated_images_list, size, channels, gpu
 
     return original_vectors
 
-def calculate_scores():
-    # calculate score
-    scores = [None] * len(population)
-    for i in range(0, len(population)):
+def calculate_scores(population_size, structure, original_vectors, s_step=2):
+    pertype_count = int((2/s_step))
+
+    scores = [None] * population_size
+    for i in range(0, population_size):
         final_score = -100
         temp_index = -1
         mean_score = 0
@@ -1042,7 +1042,7 @@ def calculate_scores():
                     limits = [0, h/2]
                     # temp = h/(2*3)
                     # limits = [temp*2, temp*3]
-                    score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
+                    score_direction = rotation_symmetry_score(good_vectors, w, h, limits)
                     score_strength = strength_number(good_vectors,max_strength)
                     score_d = 0.7*score_direction + 0.3*score_strength
                     print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
@@ -1092,9 +1092,9 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
     repeated_images_list=cppn_evolution(population)
     original_vectors = get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
-    repeat, c_dim)
+    repeat, c_dim, total_count)
 
-    scores = calculate_scores()
+    scores = calculate_scores(len(population), structure, original_vectors, s_step)
 
     i = 0
     best_score = 0
@@ -1157,25 +1157,38 @@ def mutate_pixels(input_image, rate):
     return image
     
 
-def pixel_evolution(population_size, output_dir, model_name, channels, c_dim):
+def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure):
     output_dir = "temp/" 
     repeat = 20
     half_h = int(h/2)
     size = [w,h]
     gpu = 0
     mutation_rate = 0.1
+    best_dir = output_dir
+    skip = 1
 
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
 
     repeated_images_list = [None]* (repeat)
-    images_list = [None]*population_size
+    images_list = [None]*(population_size)
 
-    image_random = get_random_pixels(h, w)
+    best_image_pixels = get_random_pixels(h, w)
+    best_score = 0
+    best_best_score = 0
+    best_illusion = 0
+    image = Image.fromarray(np.array(best_image_pixels,dtype=np.uint8))
+    save_to_name = best_dir + "/best.png"
+    image.save(save_to_name, "PNG")
+
+    generation = 0
 
     while True:
+        print("generation", generation)
+        generation = generation+1
+
         for i in range(population_size):
-            image_modified = mutate_pixels(image_random, mutation_rate)
+            image_modified = mutate_pixels(best_image_pixels, mutation_rate)
 
             # save  image
             image_name = output_dir + "images/" + str(i).zfill(10) + ".png"
@@ -1189,33 +1202,33 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim):
             repeated_images_list[i*repeat:(i+1)*repeat] = [image_name]*repeat
 
         original_vectors = get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
-        repeat, c_dim)
+        repeat, c_dim, population_size)
 
-        scores = calculate_scores()
+        scores = calculate_scores(population_size, structure, original_vectors)
 
-        i = 0
-        best_score = 0
-        best_illusion = 0
-        best_genome = None
+
         for i in range(population_size):
             if (scores[i][1]> best_score):
                 best_illusion = i
                 best_score = scores[i][1]
-                best_genome = genome
             i = i+1
 
-        # save best illusion
-        # image_name = images_list[best_illusion]
-        # move_to_name = best_dir + "/best_bw.png"
-        # shutil.copy(image_name, move_to_name)
-        print("best", image_name, best_illusion)
-        image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
-        move_to_name = best_dir + "/best.png"
-        shutil.copy(image_name, move_to_name)
-        index = int(best_illusion*(repeat/skip) + repeat-1)
-        image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
-        move_to_name = best_dir + "/best_flow.png"
-        shutil.copy(image_name, move_to_name)
+        if(best_score>best_best_score):
+            best_best_score = best_score
+            # save best illusion
+            image_name = images_list[best_illusion]
+            best_image_pixels = np.asarray(Image.open(image_name))
+
+            # move_to_name = best_dir + "/best_bw.png"
+            # shutil.copy(image_name, move_to_name)
+            print("best", image_name, best_illusion)
+            image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+            move_to_name = best_dir + "/best.png"
+            shutil.copy(image_name, move_to_name)
+            index = int(best_illusion*(repeat/skip) + repeat-1)
+            image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
+            move_to_name = best_dir + "/best_flow.png"
+            shutil.copy(image_name, move_to_name)
 
 
 def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1):
@@ -1312,7 +1325,7 @@ if __name__ == "__main__":
         neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
         args.color_space, args.checkpoint, args.gradient)
     else:
-        population_size = 30
+        population_size = 10
         pixel_evolution(population_size, output_dir, args.model,string_to_intarray(args.channels),
-        args.color_space)
+        args.color_space, args.structure,)
 
