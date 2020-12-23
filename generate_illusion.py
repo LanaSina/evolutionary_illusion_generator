@@ -13,7 +13,7 @@ from pytorch_neat.pytorch_neat.cppn import create_cppn
 from pytorch_neat.pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
 from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
-#from random import random
+from random import random
 import shutil
 import torch
 
@@ -957,13 +957,6 @@ def cppn_evolution(population):
         i = i + 1
 
     return repeated_images_list
-    
-
-def get_random_pixels(w, h):
-    img_data = numpy.random.rand(w,h,3) 
-    img_data = math.round(img_data*255.0)
-    
-    return img_data
 
 
 def get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
@@ -1145,14 +1138,19 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         image_name = best_dir + "/enhanced.png"
         image.save(image_name)
 
+def get_random_pixels(w, h):
+    img_data = np.random.rand(w,h,3) 
+    img_data = np.round(img_data*255.0)
+    
+    return img_data
 
 def mutate_pixels(input_image, rate):
     mutated = np.copy(input_image)
 
     for x in range(mutated.shape[0]):
-        for y in range(mutated.shape[0]):
-            if random(0,1) < rate:
-                new_pixel = math.round(np.random.rand(3)*255)
+        for y in range(mutated.shape[1]):
+            if random() < rate:
+                new_pixel = np.round(np.random.rand(3)*255)
                 mutated[x,y,:] = new_pixel
 
     image =  Image.fromarray(np.array(mutated,dtype=np.uint8))
@@ -1170,25 +1168,25 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim):
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
 
-    repeated_images_list = [None]* (total_count + repeat)
-    images_list = [None]*total_count
+    repeated_images_list = [None]* (repeat)
+    images_list = [None]*population_size
 
-    image_random = get_random_pixels(w, h)
+    image_random = get_random_pixels(h, w)
 
     while True:
         for i in range(population_size):
-            image_modified = get_random_pixels(image_random)
+            image_modified = mutate_pixels(image_random, mutation_rate)
 
             # save  image
-            image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
-            image_whitebg.save(image_name, "PNG")
+            image_name = output_dir + "images/" + str(i).zfill(10) + ".png"
+            image_modified.save(image_name, "PNG")
             # image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
             # image_blackbg.save(image_name, "PNG")
 
             image = np.asarray(Image.open(image_name))
 
-            images_list[index] = image_name
-            repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
+            images_list[i] = image_name
+            repeated_images_list[i*repeat:(i+1)*repeat] = [image_name]*repeat
 
         original_vectors = get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
         repeat, c_dim)
@@ -1278,7 +1276,7 @@ if __name__ == "__main__":
     # 3,48,96,192
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
     parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
-    parser.add_argument('--pixel', '-px', default=-1, type=int, help='-1 to use cppn, 0 for pixel evolution')
+    parser.add_argument('--pixels', '-px', default=-1, type=int, help='-1 to use cppn, 0 for pixel evolution')
 
 
     args = parser.parse_args()
@@ -1310,7 +1308,7 @@ if __name__ == "__main__":
     print("config", config)
     print("gradient", args.gradient)
 
-    if(args.pixels<1):
+    if(args.pixels<0):
         neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
         args.color_space, args.checkpoint, args.gradient)
     else:
