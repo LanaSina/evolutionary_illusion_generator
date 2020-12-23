@@ -13,7 +13,7 @@ from pytorch_neat.pytorch_neat.cppn import create_cppn
 from pytorch_neat.pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
 from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
-from random import random, randrange
+#from random import random
 import shutil
 import torch
 
@@ -224,20 +224,7 @@ def rotation_symmetry_score(vectors, w, h, limits = None, original_filename="tem
     rotated_vectors[:,2] = rotated_vectors[:,2]/norms
     rotated_vectors[:,3] = rotated_vectors[:,3]/norms
 
-    # for debugging
-    # output_dir = "temp/normalized/"
-    # if not os.path.exists(output_dir + "csv"):
-    #     os.makedirs(output_dir+"csv")
-    #     print("created", output_dir)
-
-    # image = np.zeros((120, 160, 3))
-    # n_v = np.array([rotated_vectors[:,0] + center[0], rotated_vectors[:,1]+center[1], rotated_vectors[:,2], rotated_vectors[:,3]])
-    # n_v = np.transpose(n_v)
-    # image = draw_tracks(image, n_v, vector_scale=10)
-    # print(original_filename)
-    # save_data(image, n_v, output_dir, original_filename, verbose = 1, save_name="")
-
-
+    
     # rotate vectors clockwise to x axis
     # new_x = cos(a)x + sin(a)y, new_y = cos(a)y - sin(a)x
     # cos(a) = x/dist, sin a = y/dist
@@ -253,19 +240,6 @@ def rotation_symmetry_score(vectors, w, h, limits = None, original_filename="tem
 
     var_x = np.var(r_v[:,0])
     var_y = np.var(r_v[:,1])
-
-    # image = np.zeros((120, 160, 3))
-    # # back to cv2 coordinates
-    # n_v = np.array([distances + center[0], np.zeros((len(distances)))+center[1], rx_1-distances, ry_1])
-    # n_v = np.transpose(n_v)
-
-    # output_dir = "temp/rotated/"
-    # if not os.path.exists(output_dir + "csv"):
-    #     os.makedirs(output_dir+"csv")
-    #     print("created", output_dir)
-
-    # image = draw_tracks(image, n_v, vector_scale=10)
-    # save_data(image, n_v, output_dir, original_filename, verbose = 1, save_name="")
 
     # max var is 1
     score = (1 - var_x)*(1 - var_x) + (1 - var_y)*(1 - var_y)
@@ -948,24 +922,8 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
-# population:  [id, net]
-def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
-    id=0, c_dim=3, best_dir = ".", gradient = 1):
 
-    print("Calculating fitnesses of populations: ", len(population))
-    output_dir = "temp/" 
-    repeat = 20
-    half_h = int(h/2)
-    size = [w,h]
-    gpu = 0
-
-    prediction_dir = output_dir + "/prediction/"
-    if not os.path.exists(prediction_dir):
-        os.makedirs(prediction_dir)
-
-    if not os.path.exists(output_dir + "images/"):
-        os.makedirs(output_dir + "images/")
-
+def cppn_evolution(population):
     # latent space coarse graining (none)
     s_step = 2
     pertype_count = int((2/s_step))
@@ -998,6 +956,23 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             j = j+1
         i = i + 1
 
+    return repeated_images_list
+    
+
+def get_random_pixels(w, h):
+    img_data = numpy.random.rand(w,h,3) 
+    img_data = math.round(img_data*255.0)
+    
+    return img_data
+
+
+def get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
+    repeat, c_dim):
+
+    prediction_dir = output_dir + "/prediction/"
+    if not os.path.exists(prediction_dir):
+        os.makedirs(prediction_dir)
+
     print("Predicting illusions...")
     skip = 1
     extension_duration = 2 #2
@@ -1025,6 +1000,9 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             original_vectors[i] = [[0,0,-1000,0]]
         i = i + 1
 
+    return original_vectors
+
+def calculate_scores():
     # calculate score
     scores = [None] * len(population)
     for i in range(0, len(population)):
@@ -1101,6 +1079,30 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         scores[i] =[i, m]
 
     print("scores",scores)
+
+    return scores
+
+# population:  [id, net]
+def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
+    id=0, c_dim=3, best_dir = ".", gradient = 1, pix_evo = -1):
+
+    print("Calculating fitnesses of populations: ", len(population))
+    output_dir = "temp/" 
+    repeat = 20
+    half_h = int(h/2)
+    size = [w,h]
+    gpu = 0
+
+    
+    if not os.path.exists(output_dir + "images/"):
+        os.makedirs(output_dir + "images/")
+
+    repeated_images_list=cppn_evolution(population)
+    original_vectors = get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
+    repeat, c_dim)
+
+    scores = calculate_scores()
+
     i = 0
     best_score = 0
     best_illusion = 0
@@ -1126,20 +1128,96 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
 
-    image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
-        s_val = s_val, bg = 0, gradient=gradient)
-    image_name = best_dir + "/best_black_bg.png"
-    image_blackbg.save(image_name, "PNG")
-    
-    # create enhanced image
-    e_w = 800
-    e_h = 800
-    e_grid = enhanced_image_grid(e_w, e_h, structure)
-    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
-        s_val = -1, bg = 0, gradient=gradient)
+    if pix_evo<0:
 
-    image_name = best_dir + "/enhanced.png"
-    image.save(image_name)
+        image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
+            s_val = s_val, bg = 0, gradient=gradient)
+        image_name = best_dir + "/best_black_bg.png"
+        image_blackbg.save(image_name, "PNG")
+        
+        # create enhanced image
+        e_w = 800
+        e_h = 800
+        e_grid = enhanced_image_grid(e_w, e_h, structure)
+        image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
+            s_val = -1, bg = 0, gradient=gradient)
+
+        image_name = best_dir + "/enhanced.png"
+        image.save(image_name)
+
+
+def mutate_pixels(input_image, rate):
+    mutated = np.copy(input_image)
+
+    for x in range(mutated.shape[0]):
+        for y in range(mutated.shape[0]):
+            if random(0,1) < rate:
+                new_pixel = math.round(np.random.rand(3)*255)
+                mutated[x,y,:] = new_pixel
+
+    image =  Image.fromarray(np.array(mutated,dtype=np.uint8))
+    return image
+    
+
+def pixel_evolution(population_size, output_dir, model_name, channels, c_dim):
+    output_dir = "temp/" 
+    repeat = 20
+    half_h = int(h/2)
+    size = [w,h]
+    gpu = 0
+    mutation_rate = 0.1
+
+    if not os.path.exists(output_dir + "images/"):
+        os.makedirs(output_dir + "images/")
+
+    repeated_images_list = [None]* (total_count + repeat)
+    images_list = [None]*total_count
+
+    image_random = get_random_pixels(w, h)
+
+    while True:
+        for i in range(population_size):
+            image_modified = get_random_pixels(image_random)
+
+            # save  image
+            image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
+            image_whitebg.save(image_name, "PNG")
+            # image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
+            # image_blackbg.save(image_name, "PNG")
+
+            image = np.asarray(Image.open(image_name))
+
+            images_list[index] = image_name
+            repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
+
+        original_vectors = get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
+        repeat, c_dim)
+
+        scores = calculate_scores()
+
+        i = 0
+        best_score = 0
+        best_illusion = 0
+        best_genome = None
+        for i in range(population_size):
+            if (scores[i][1]> best_score):
+                best_illusion = i
+                best_score = scores[i][1]
+                best_genome = genome
+            i = i+1
+
+        # save best illusion
+        # image_name = images_list[best_illusion]
+        # move_to_name = best_dir + "/best_bw.png"
+        # shutil.copy(image_name, move_to_name)
+        print("best", image_name, best_illusion)
+        image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+        move_to_name = best_dir + "/best.png"
+        shutil.copy(image_name, move_to_name)
+        index = int(best_illusion*(repeat/skip) + repeat-1)
+        image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
+        move_to_name = best_dir + "/best_flow.png"
+        shutil.copy(image_name, move_to_name)
 
 
 def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1):
@@ -1200,6 +1278,7 @@ if __name__ == "__main__":
     # 3,48,96,192
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
     parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
+    parser.add_argument('--pixel', '-px', default=-1, type=int, help='-1 to use cppn, 0 for pixel evolution')
 
 
     args = parser.parse_args()
@@ -1230,6 +1309,12 @@ if __name__ == "__main__":
         
     print("config", config)
     print("gradient", args.gradient)
-    neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
+
+    if(args.pixels<1):
+        neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
         args.color_space, args.checkpoint, args.gradient)
+    else:
+        population_size = 30
+        pixel_evolution(population_size, output_dir, args.model,string_to_intarray(args.channels),
+        args.color_space)
 
