@@ -1139,8 +1139,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         image_name = best_dir + "/enhanced.png"
         image.save(image_name)
 
-def get_random_pixels(w, h):
-    img_data = np.random.rand(w,h,3) 
+def get_random_pixels(w, h, c_dim):
+    img_data = np.random.rand(w,h,c_dim) 
     img_data = np.round(img_data*255.0)
     
     return img_data
@@ -1200,22 +1200,17 @@ def mutate_pixels(input_image, i_rate, c_dim):
                 fix_values(new_pixels[ix,iy,:])
 
         mutated[x:x_stop,y:y_stop,:] = new_pixels
-    
-    # for x in range(mutated.shape[0]):
-    #     for y in range(mutated.shape[1]):
-    #         if random() < rate:
-    #             old_pixel = mutated[x,y,:]
-    #             mutation = range_mutation - np.random.rand(3)*range_mutation*2
-    #             new_pixel = old_pixel + mutation
-    #             fix_values(new_pixel)
-    #             new_pixel = np.round(new_pixel)
-    #             mutated[x,y,:] = new_pixel
+        mutated[x,y,:] = new_pixel
 
-    image =  Image.fromarray(np.array(mutated,dtype=np.uint8))
+    if c_dim == 3:
+        image =  Image.fromarray(np.array(mutated,dtype=np.uint8))
+    else:
+        image =  Image.fromarray(np.array(mutated,dtype=np.uint8), 'L')
+
     return image
     
 
-def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure, start_image, c_dim):
+def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure, start_image):
     output_dir = "temp/" 
     repeat = 20
     half_h = int(h/2)
@@ -1237,15 +1232,22 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
     best_illusion = 0
     if start_image!="":
         #best_image_pixels = Image.open(start_image).convert('RGB')
-        image = Image.open(start_image).convert('RGB')
+        if c_dim==3:
+            image = Image.open(start_image).convert('RGB')
+        else:
+             image = Image.open(start_image).convert('L')
         best_image_pixels = np.array(image)
         save_to_name = best_dir + "/best.png"
         shutil.copy(start_image, save_to_name)
     else:
-        #best_image_pixels = get_random_pixels(h, w)
-        img_data = np.ones((h,w,3)) 
+
+        img_data = np.ones((h,w,c_dim)) 
         best_image_pixels = np.round(img_data*255.0)
-        image = Image.fromarray(np.array(best_image_pixels,dtype=np.uint8))
+        if c_dim == 3:
+            image = Image.fromarray(np.array(best_image_pixels,dtype=np.uint8))
+        else:
+            best_image_pixels = best_image_pixels.reshape(h,w)
+            image = Image.fromarray(np.array(best_image_pixels,dtype=np.uint8), 'L')
         save_to_name = best_dir + "/best.png"
         image.save(save_to_name, "PNG")
 
@@ -1402,5 +1404,5 @@ if __name__ == "__main__":
     else:
         population_size = 10
         pixel_evolution(population_size, output_dir, args.model,string_to_intarray(args.channels),
-        args.color_space, args.structure, args.start, args.color_space)
+        args.color_space, args.structure, args.start)
 
