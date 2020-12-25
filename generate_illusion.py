@@ -3,6 +3,7 @@ from chainer_prednet.PredNet.call_prednet import test_prednet
 from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 import csv
 from enum import IntEnum
+from google.colab import files
 import math
 import neat
 import numpy as np
@@ -1144,26 +1145,83 @@ def get_random_pixels(w, h):
     
     return img_data
 
-def mutate_pixels(input_image, rate):
+def fix_values(pixel):
+    for i in range(3):
+        if(pixel[i]<0):
+            pixel[i] = -pixel[i]
+        elif pixel[i]>255:
+            pixel[i] = 255*2 - pixel[i]
+
+
+def mutate_pixels(input_image, i_rate, c_dim):
     mutated = np.copy(input_image)
 
-    for x in range(mutated.shape[0]):
-        for y in range(mutated.shape[1]):
-            if random() < rate:
-                new_pixel = np.round(np.random.rand(3)*255)
-                mutated[x,y,:] = new_pixel
+    #+- this
+    range_mutation = 50
+    radius = 10
+    n = int(np.round(mutated.shape[0]*mutated.shape[1]/(radius*2*radius*2)))
+    #print(n)
+    #n = int(np.round(mutated.shape[0]*mutated.shape[1]*rate))
+
+    #generate a number of random starting points
+    points = np.random.rand(n,2)
+
+    points[:,0] = points[:,0]*(mutated.shape[0])
+    points[:,1] = points[:,1]*(mutated.shape[1])
+    points = points.astype(int)
+
+    if c_dim == 3:
+        mutation = range_mutation - np.random.rand(3)*range_mutation*2
+    else:
+        mutation = range_mutation - np.random.rand(1)*range_mutation*2
+
+    for c in range(n):
+        x = points[c,0]-radius
+        y = points[c,1]-radius
+        x_stop = x + radius
+        y_stop = y + radius
+
+        if(x<0):
+            x=0
+        if(y<0):
+            y=0
+
+        if(x_stop>mutated.shape[0]):
+            x_stop = mutated.shape[0]
+        if(y_stop>mutated.shape[1]):
+            y_stop = mutated.shape[1]
+
+        old_pixels = mutated[x:x_stop,y:y_stop,:]
+        # mutation = range_mutation - np.random.rand(3)*range_mutation*2
+        new_pixels = old_pixels + mutation
+
+        for ix in range(x_stop-x):
+            for iy in range(y_stop-y):
+                fix_values(new_pixels[ix,iy,:])
+
+        mutated[x:x_stop,y:y_stop,:] = new_pixels
+    
+    # for x in range(mutated.shape[0]):
+    #     for y in range(mutated.shape[1]):
+    #         if random() < rate:
+    #             old_pixel = mutated[x,y,:]
+    #             mutation = range_mutation - np.random.rand(3)*range_mutation*2
+    #             new_pixel = old_pixel + mutation
+    #             fix_values(new_pixel)
+    #             new_pixel = np.round(new_pixel)
+    #             mutated[x,y,:] = new_pixel
 
     image =  Image.fromarray(np.array(mutated,dtype=np.uint8))
     return image
     
 
-def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure):
+def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure, start_image, c_dim):
     output_dir = "temp/" 
     repeat = 20
     half_h = int(h/2)
     size = [w,h]
     gpu = 0
-    mutation_rate = 0.1
+    mutation_rate = 0.15
     best_dir = output_dir
     skip = 1
 
@@ -1173,13 +1231,23 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
     repeated_images_list = [None]* (repeat)
     images_list = [None]*(population_size)
 
-    best_image_pixels = get_random_pixels(h, w)
+    
     best_score = 0
     best_best_score = 0
     best_illusion = 0
-    image = Image.fromarray(np.array(best_image_pixels,dtype=np.uint8))
-    save_to_name = best_dir + "/best.png"
-    image.save(save_to_name, "PNG")
+    if start_image!="":
+        #best_image_pixels = Image.open(start_image).convert('RGB')
+        image = Image.open(start_image).convert('RGB')
+        best_image_pixels = np.array(image)
+        save_to_name = best_dir + "/best.png"
+        shutil.copy(start_image, save_to_name)
+    else:
+        #best_image_pixels = get_random_pixels(h, w)
+        img_data = np.ones((h,w,3)) 
+        best_image_pixels = np.round(img_data*255.0)
+        image = Image.fromarray(np.array(best_image_pixels,dtype=np.uint8))
+        save_to_name = best_dir + "/best.png"
+        image.save(save_to_name, "PNG")
 
     generation = 0
 
@@ -1188,7 +1256,10 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
         generation = generation+1
 
         for i in range(population_size):
-            image_modified = mutate_pixels(best_image_pixels, mutation_rate)
+            if(i==0) and (generation==1):
+                image_modified = image
+            else:
+                image_modified = mutate_pixels(best_image_pixels, mutation_rate, c_dim)
 
             # save  image
             image_name = output_dir + "images/" + str(i).zfill(10) + ".png"
@@ -1213,7 +1284,7 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
                 best_score = scores[i][1]
             i = i+1
 
-        if(best_score>best_best_score):
+        if(best_score>=best_best_score):
             best_best_score = best_score
             # save best illusion
             image_name = images_list[best_illusion]
@@ -1225,11 +1296,14 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
             image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
             move_to_name = best_dir + "/best.png"
             shutil.copy(image_name, move_to_name)
+            #files.download(move_to_name)
             index = int(best_illusion*(repeat/skip) + repeat-1)
             image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
             move_to_name = best_dir + "/best_flow.png"
             shutil.copy(image_name, move_to_name)
+            #files.download(move_to_name)
 
+        print("best score", best_best_score)
 
 def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1):
     repeat = 6
@@ -1290,6 +1364,7 @@ if __name__ == "__main__":
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
     parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
     parser.add_argument('--pixels', '-px', default=-1, type=int, help='-1 to use cppn, 0 for pixel evolution')
+    parser.add_argument('--start', default="", help='pixel image to use as starting point')
 
 
     args = parser.parse_args()
@@ -1327,5 +1402,5 @@ if __name__ == "__main__":
     else:
         population_size = 10
         pixel_evolution(population_size, output_dir, args.model,string_to_intarray(args.channels),
-        args.color_space, args.structure,)
+        args.color_space, args.structure, args.start, args.color_space)
 
