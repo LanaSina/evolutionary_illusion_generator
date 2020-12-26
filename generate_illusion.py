@@ -940,7 +940,7 @@ def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, grad
             s_val = -1 + s*s_step
             index = i*pertype_count+j
             image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config,
-                s_val = s_val, gradient=gradient)
+                s_val = s_val, bg = 0, gradient=gradient)
             # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
             # save  image
@@ -1031,12 +1031,13 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
     for input_path in images_list:
         
         # bg = white by default
+        bg = 0 # 255
         if c_dim == 3:
             image  = Image.open(input_path)
-            new_image = Image.new('RGB', (x_cells*cell_size, y_cells*cell_size), (255, 255, 255))
+            new_image = Image.new('RGB', (x_cells*cell_size, y_cells*cell_size), (bg, bg, bg))
         else:
             image  = Image.open(input_path).convert("L")
-            new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (255))
+            new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (bg))
 
         # frame = cv2.imread(input_path)
         # average_image = cv2.bilateralFilter(frame,11,11,11) #cv2.GaussianBlur(frame,(3,3),0)  # 
@@ -1170,6 +1171,47 @@ def calculate_scores(population_size, structure, original_vectors, s_step=2):
     print("scores",scores)
 
     return scores
+
+
+def detailed_scores(population_size, structure, original_vectors):
+    scores_direction = [None] * population_size
+    scores_strength = [None] * population_size
+
+    for i in range(0, population_size):
+        final_score = -100
+        temp_index = -1
+        mean_score = 0
+        # traverse latent space
+        index = i
+        score = 0
+        score_d = 0
+
+        if structure == StructureType.Circles or structure == StructureType.CirclesFree :
+            max_strength = 0.4 # 0.4
+            ratio = plausibility_ratio(original_vectors[index], max_strength) 
+            score_0 = ratio[0]
+            good_vectors = ratio[1]
+            min_vectors = ((2*math.pi) / (math.pi/4.0))*3
+            #print("min_vectors", min_vectors, len(good_vectors))
+
+            if(len(good_vectors)>min_vectors): 
+                # get tangent scores
+                score_direction = 0
+                limits = [0, h/2]
+                # temp = h/(2*3)
+                # limits = [temp*2, temp*3]
+                scores_direction[i] = rotation_symmetry_score(good_vectors, w, h, limits)
+                scores_strength[i] = strength_number(good_vectors,max_strength)
+                #score_number = min(1, len(good_vectors)/(160*120/100))
+                #score_d = 0.*score_direction + 0.3*score_strength #+ 0.3*score_number
+                # print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
+            else:
+                scores_direction[i] = 0
+                scores_strength[i] = 0
+
+    #print("scores",scores)
+
+    return scores_direction, scores_strength
 
 # population:  [id, net]
 def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
@@ -1325,6 +1367,7 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
     mutation_rate = 0.15
     best_dir = output_dir
     skip = 1
+    half_population = int(population_size/2)
 
     radius = 10
     n = int(np.round(w*h/(radius*2*radius*2)))
@@ -1351,7 +1394,6 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
         save_to_name = best_dir + "/best.png"
         shutil.copy(start_image, save_to_name)
     else:
-
         img_data = np.ones((h,w,c_dim)) 
         best_image_pixels = np.round(img_data*255.0)
         if c_dim == 3:
@@ -1363,17 +1405,26 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
         image.save(save_to_name, "PNG")
 
     generation = 0
-
+    species_genomes_0 = winning_genome
+    species_genomes_1 = winning_genome
     while True:
         print("generation", generation)
         generation = generation+1
-
+        
         for i in range(population_size):
             if(i==0) and (generation==1):
                 image_modified = image
             else:
                 # divide all images into 2 species?
-                image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, winning_genome)
+                if(i<population_size/2):
+                    # image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, winning_genome)
+                    image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, species_genomes_0)
+                    # dont' mutate the genome yet
+                    mutated_genomes[i] = species_genomes_0
+                else:
+                    image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, species_genomes_1)
+                    # dont' mutate the genome yet
+                    mutated_genomes[i] = species_genomes_1
 
             # save  image
             image_name = output_dir + "images/" + str(i).zfill(10) + ".png"
@@ -1389,16 +1440,39 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
         original_vectors = get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
         repeat, c_dim, population_size)
 
-        scores = calculate_scores(population_size, structure, original_vectors)
+        #scores = calculate_scores(population_size, structure, original_vectors)
 
+        scores_direction, scores_strength = detailed_scores(population_size, structure, original_vectors)
+
+        # calculate failure coverage
+        score_d0 = np.var(scores_direction[0:half_population])
+        score_d1 = np.var(scores_direction[half_population:population_size])
+        score_s0 = np.var(scores_strength[0:half_population])
+        score_s1 = np.var(scores_strength[half_population:population_size])
+
+        score_0 = score_d0+score_s0
+        score_1 = score_d1+score_s1
+        print("scores_direction", scores_direction)
+        print("scores_strength", scores_strength)
+        print("falure coverage", score_0, score_1)
+
+        # take highest variance
+        if score_0 >= score_1:
+            pstart = 0
+        else:
+            pstart = half_population
 
         best_score = 0
         best_genome = {}
-        for i in range(population_size):
-            if (scores[i][1]> best_score):
+        for i in range(pstart, pstart+half_population):
+            score = scores_direction[i] + scores_strength[i]
+            if (score> best_score):
                 best_illusion = i
-                best_score = scores[i][1]
+                best_score = score 
                 best_genome = mutated_genomes[i]
+
+        species_genomes_0 = best_genome
+        species_genomes_1 = mutate_genome(best_genome)
 
         if(best_score>=best_best_score):
             print("best_score", best_score , "best_best_score", best_best_score)
