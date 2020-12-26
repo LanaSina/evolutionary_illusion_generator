@@ -2,6 +2,7 @@ import argparse
 from chainer_prednet.PredNet.call_prednet import test_prednet
 from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 import csv
+import cv2
 from enum import IntEnum
 from google.colab import files
 import math
@@ -1002,7 +1003,7 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
     if not os.path.exists(prediction_dir):
         os.makedirs(prediction_dir)
 
-    step = 1
+    step = 5
     cell_size = step*2 + 1
     x_cells = math.ceil(size[0]/cell_size)
     y_cells = math.ceil(size[1]/cell_size)
@@ -1012,7 +1013,7 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
 
     # weight matrix for averages
     center = step
-    weights = np.zeros((cell_size, cell_size))
+    weights = np.ones((cell_size, cell_size))
     for x in range(cell_size):
         for y in range(cell_size):
             if (x == step and y == step):
@@ -1022,10 +1023,9 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                 distance_sq = (x-step)*(x-step) + (y-step)*(y-step)
                 weights[x, y] = 1/distance_sq
 
-    factor = np.sum(weights)
+    print("weights")
     print(weights)
-
-    print("Averaging images, calculatng flows, factor", factor)
+    print("Averaging images, calculatng flows")
     # average each cell with its neighbors and save the image
     index = 0
     for input_path in images_list:
@@ -1038,37 +1038,43 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
             image  = Image.open(input_path).convert("L")
             new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (255))
 
-        new_image.paste(image)
-        new_image = np.array(new_image)
-        if c_dim == 1:
-            new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
-
-        # transpose x and y for nupmy
-        average_image = np.zeros((new_image.shape[0], new_image.shape[1]))
-        for x in range(new_image.shape[0]):
-            for y in range(new_image.shape[1]):
-                x0 = max(0, x - step)
-                y0 = max(0, y - step)
-                x1 = min(new_image.shape[0], x + step + 1) #subsetting leaves last number out
-                y1 = min(new_image.shape[1], y + step + 1)
-                if c_dim == 3:
-                    pixel = np.mean(new_image[x0:x1, y0:y1, :])
-                    average_image[x,y,:] = pixel
-                else:
-                    pixel = np.sum(np.multiply(weights[x1-x0-1, y1-y0-1],new_image[x0:x1, y0:y1]))
-                    pixel = pixel/factor
-                    #print(pixel)
-                    pixel = int(pixel)
-                    average_image[x,y] = pixel
-        # save
+        frame = cv2.imread(input_path)
+        average_image = cv2.GaussianBlur(frame,(11,11),2.5)
         average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
-        if c_dim == 3:
-            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0], :])
-        else:
-            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0]])
-            av = av.convert("L")
+        cv2.imwrite(average_image_path, average_image)
 
-        av.save(average_image_path)
+        # new_image.paste(image)
+        # new_image = np.array(new_image)
+        # if c_dim == 1:
+        #     new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
+
+        # # transpose x and y for nupmy
+        # average_image = np.zeros((new_image.shape[0], new_image.shape[1]))
+        # for x in range(new_image.shape[0]):
+        #     for y in range(new_image.shape[1]):
+        #         x0 = max(0, x - step)
+        #         y0 = max(0, y - step)
+        #         x1 = min(new_image.shape[0], x + step + 1) #subsetting leaves last number out
+        #         y1 = min(new_image.shape[1], y + step + 1)
+        #         if c_dim == 3:
+        #             pixel = np.mean(new_image[x0:x1, y0:y1, :])
+        #             average_image[x,y,:] = pixel
+        #         else:
+        #             pixel = np.sum(np.multiply(weights[0:x1-x0, 0:y1-y0],new_image[x0:x1, y0:y1]))
+        #             factor = np.sum(weights[0:x1-x0, 0:y1-y0])
+        #             pixel = pixel/factor
+        #             #print(pixel)
+        #             pixel = int(pixel)
+        #             average_image[x,y] = pixel
+        # save
+        # average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
+        # if c_dim == 3:
+        #     av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0], :])
+        # else:
+        #     av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0]])
+        #     av = av.convert("L")
+
+        # av.save(average_image_path)
 
         # calculate flows
         save_name = output_dir + "/images/" + str(index).zfill(10) + "_f.png"
@@ -1226,7 +1232,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     e_h = 800
     e_grid = enhanced_image_grid(e_w, e_h, structure)
     image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
-        s_val = -1, bg = 0, gradient=gradient)
+        s_val = -1, bg = 1, gradient=gradient)
 
     image_name = best_dir + "/enhanced.png"
     image.save(image_name)
