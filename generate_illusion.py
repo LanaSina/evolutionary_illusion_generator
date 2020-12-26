@@ -996,7 +996,7 @@ def get_flows(images_list, model_name, repeated_images_list, size, channels, gpu
     return original_vectors
 
 
-def get_flows_mean(images_list, output_dir, c_dim):
+def get_flows_mean(images_list, size,  output_dir, c_dim):
 
     prediction_dir = output_dir + "/prediction/"
     if not os.path.exists(prediction_dir):
@@ -1004,42 +1004,75 @@ def get_flows_mean(images_list, output_dir, c_dim):
 
     step = 1
     cell_size = step*2 + 1
+    x_cells = math.ceil(size[0]/cell_size)
+    y_cells = math.ceil(size[1]/cell_size)
     original_vectors = [None] * len(images_list)
+    # number of recognized colors
+    grain = 255
 
-    print("Averaging images, calculatng flows")
+    # weight matrix for averages
+    center = step
+    weights = np.zeros((cell_size, cell_size))
+    for x in range(cell_size):
+        for y in range(cell_size):
+            if (x == step and y == step):
+                weights[x, y] = 2
+            else:
+                # weight = 1 for distance = 1
+                distance_sq = (x-step)*(x-step) + (y-step)*(y-step)
+                weights[x, y] = 1/distance_sq
+
+    factor = np.sum(weights)
+    print(weights)
+
+    print("Averaging images, calculatng flows, factor", factor)
     # average each cell with its neighbors and save the image
     index = 0
-    for input_image in images_list:
-        image  = Image.open(input_path)
+    for input_path in images_list:
+        
         # bg = white by default
         if c_dim == 3:
+            image  = Image.open(input_path)
             new_image = Image.new('RGB', (x_cells*cell_size, y_cells*cell_size), (255, 255, 255))
         else:
-            new_image = Image.new('RGB', (x_cells*cell_size, y_cells*cell_size), (255))
+            image  = Image.open(input_path).convert("L")
+            new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (255))
+
         new_image.paste(image)
         new_image = np.array(new_image)
+        if c_dim == 1:
+            new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
+
         # transpose x and y for nupmy
-        average_image = np.zeros((image.size[1], image.size[0]))
-        for x in new_image.size[0]:
-            for y in new_image.size[1]:
+        average_image = np.zeros((new_image.shape[0], new_image.shape[1]))
+        for x in range(new_image.shape[0]):
+            for y in range(new_image.shape[1]):
                 x0 = max(0, x - step)
                 y0 = max(0, y - step)
-                x1 = min(image.size[0], x + step)
-                y1 = min(image.size[1], 1 + step)
+                x1 = min(new_image.shape[0], x + step + 1) #subsetting leaves last number out
+                y1 = min(new_image.shape[1], y + step + 1)
                 if c_dim == 3:
                     pixel = np.mean(new_image[x0:x1, y0:y1, :])
                     average_image[x,y,:] = pixel
                 else:
-                    pixel = np.mean(new_image[x0:x1, y0:y1])
+                    pixel = np.sum(np.multiply(weights[x1-x0-1, y1-y0-1],new_image[x0:x1, y0:y1]))
+                    pixel = pixel/factor
+                    #print(pixel)
+                    pixel = int(pixel)
                     average_image[x,y] = pixel
         # save
-        average_image_path = output_dir + "images/" + str(index).zfill(10) + ".png"
-        av = Image.fromarray(average_image)
+        average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
+        if c_dim == 3:
+            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0], :])
+        else:
+            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0]])
+            av = av.convert("L")
+
         av.save(average_image_path)
 
         # calculate flows
         save_name = output_dir + "/images/" + str(index).zfill(10) + "_f.png"
-        results = lucas_kanade(input_image, average_image_path, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
+        results = lucas_kanade(input_path, average_image_path, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
         if results["vectors"]:
             original_vectors[index] = np.asarray(results["vectors"])
         else:
@@ -1157,7 +1190,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     # repeat, c_dim, total_count)
 
     # using mean
-    original_vectors = get_flows_mean(images_list, output_dir, c_dim)
+    original_vectors = get_flows_mean(images_list, size, output_dir, c_dim)
 
     scores = calculate_scores(len(population), structure, original_vectors, s_step)
 
