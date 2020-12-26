@@ -1023,8 +1023,8 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                 distance_sq = (x-step)*(x-step) + (y-step)*(y-step)
                 weights[x, y] = 1/distance_sq
 
-    print("weights")
-    print(weights)
+    # print("weights")
+    # print(weights)
     print("Averaging images, calculatng flows")
     # average each cell with its neighbors and save the image
     index = 0
@@ -1038,43 +1038,44 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
             image  = Image.open(input_path).convert("L")
             new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (255))
 
-        frame = cv2.imread(input_path)
-        average_image = cv2.GaussianBlur(frame,(11,11),2.5)
-        average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
-        cv2.imwrite(average_image_path, average_image)
-
-        # new_image.paste(image)
-        # new_image = np.array(new_image)
-        # if c_dim == 1:
-        #     new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
-
-        # # transpose x and y for nupmy
-        # average_image = np.zeros((new_image.shape[0], new_image.shape[1]))
-        # for x in range(new_image.shape[0]):
-        #     for y in range(new_image.shape[1]):
-        #         x0 = max(0, x - step)
-        #         y0 = max(0, y - step)
-        #         x1 = min(new_image.shape[0], x + step + 1) #subsetting leaves last number out
-        #         y1 = min(new_image.shape[1], y + step + 1)
-        #         if c_dim == 3:
-        #             pixel = np.mean(new_image[x0:x1, y0:y1, :])
-        #             average_image[x,y,:] = pixel
-        #         else:
-        #             pixel = np.sum(np.multiply(weights[0:x1-x0, 0:y1-y0],new_image[x0:x1, y0:y1]))
-        #             factor = np.sum(weights[0:x1-x0, 0:y1-y0])
-        #             pixel = pixel/factor
-        #             #print(pixel)
-        #             pixel = int(pixel)
-        #             average_image[x,y] = pixel
-        # save
+        # frame = cv2.imread(input_path)
+        # average_image = cv2.bilateralFilter(frame,11,11,11) #cv2.GaussianBlur(frame,(3,3),0)  # 
         # average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
-        # if c_dim == 3:
-        #     av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0], :])
-        # else:
-        #     av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0]])
-        #     av = av.convert("L")
+        # cv2.imwrite(average_image_path, average_image)
 
-        # av.save(average_image_path)
+        #corner = [(x_cells*cell_size- image.size[0])/2, (y_cells*cell_size- image.size[1])/2]
+        new_image.paste(image)#, corner)
+        new_image = np.array(new_image)
+        if c_dim == 1:
+            new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
+
+        # transpose x and y for nupmy
+        average_image = np.zeros((new_image.shape[0], new_image.shape[1]))
+        for x in range(new_image.shape[0]):
+            for y in range(new_image.shape[1]):
+                x0 = max(0, x - step)
+                y0 = max(0, y - step)
+                x1 = min(new_image.shape[0], x + step + 1) #subsetting leaves last number out
+                y1 = min(new_image.shape[1], y + step + 1)
+                if c_dim == 3:
+                    pixel = np.mean(new_image[x0:x1, y0:y1, :])
+                    average_image[x,y,:] = pixel
+                else:
+                    pixel = np.sum(np.multiply(weights[0:x1-x0, 0:y1-y0],new_image[x0:x1, y0:y1]))
+                    factor = np.sum(weights[0:x1-x0, 0:y1-y0])
+                    pixel = pixel/factor
+                    #print(pixel)
+                    pixel = int(pixel)
+                    average_image[x,y] = pixel
+        # save
+        average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
+        if c_dim == 3:
+            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0], :])
+        else:
+            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0]])
+            av = av.convert("L")
+
+        av.save(average_image_path)
 
         # calculate flows
         save_name = output_dir + "/images/" + str(index).zfill(10) + "_f.png"
@@ -1139,8 +1140,8 @@ def calculate_scores(population_size, structure, original_vectors, s_step=2):
                     score_direction = rotation_symmetry_score(good_vectors, w, h, limits)
                     score_strength = strength_number(good_vectors,max_strength)
                     score_number = min(1, len(good_vectors)/(160*120/100))
-                    score_d = 0.4*score_direction + 0.3*score_strength + 0.3*score_number
-                    print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
+                    score_d = 0.*score_direction + 0.3*score_strength #+ 0.3*score_number
+                    # print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
 
             elif structure == StructureType.Free:
                 max_strength = 0.4
@@ -1371,6 +1372,7 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
             if(i==0) and (generation==1):
                 image_modified = image
             else:
+                # divide all images into 2 species?
                 image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, winning_genome)
 
             # save  image
