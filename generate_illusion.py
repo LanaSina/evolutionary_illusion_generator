@@ -1176,6 +1176,7 @@ def calculate_scores(population_size, structure, original_vectors, s_step=2):
 def detailed_scores(population_size, structure, original_vectors):
     scores_direction = [None] * population_size
     scores_strength = [None] * population_size
+    scores_number = [None] * population_size
 
     for i in range(0, population_size):
         final_score = -100
@@ -1191,10 +1192,10 @@ def detailed_scores(population_size, structure, original_vectors):
             ratio = plausibility_ratio(original_vectors[index], max_strength) 
             score_0 = ratio[0]
             good_vectors = ratio[1]
-            min_vectors = ((2*math.pi) / (math.pi/4.0))*3
+            #min_vectors = ((2*math.pi) / (math.pi/4.0))*3
             #print("min_vectors", min_vectors, len(good_vectors))
 
-            if(len(good_vectors)>min_vectors): 
+            if(len(good_vectors)>0): 
                 # get tangent scores
                 score_direction = 0
                 limits = [0, h/2]
@@ -1202,27 +1203,25 @@ def detailed_scores(population_size, structure, original_vectors):
                 # limits = [temp*2, temp*3]
                 scores_direction[i] = rotation_symmetry_score(good_vectors, w, h, limits)
                 scores_strength[i] = strength_number(good_vectors,max_strength)
-                #score_number = min(1, len(good_vectors)/(160*120/100))
+                scores_number[i] = min(1, len(good_vectors)/(160*120/400))
                 #score_d = 0.*score_direction + 0.3*score_strength #+ 0.3*score_number
                 # print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
             else:
                 scores_direction[i] = 0
                 scores_strength[i] = 0
+                scores_number[i] = 0
 
-    #print("scores",scores)
-
-    return scores_direction, scores_strength
+    return scores_direction, scores_strength, scores_number
 
 # population:  [id, net]
 def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
-    id=0, c_dim=3, best_dir = ".", gradient = 1):
+    id=0, c_dim=3, best_dir = ".", gradient = 1, gpu = 0):
 
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
     repeat = 20
     half_h = int(h/2)
     size = [w,h]
-    gpu = 0
     skip = 1
     
     if not os.path.exists(output_dir + "images/"):
@@ -1318,11 +1317,7 @@ def mutate_pixels(input_image, c_dim, genome):
     points[:,1] = points[:,1]*(mutated.shape[1])
     points = points.astype(int)
 
-    if c_dim == 3:
-        mutation = range_mutation - np.random.rand(3)*range_mutation*2
-    else:
-        mutation = range_mutation - np.random.rand(1)*range_mutation*2
-
+    
     for c in range(number_mutation):
         x = points[c,0]-radius
         y = points[c,1]-radius
@@ -1340,7 +1335,12 @@ def mutate_pixels(input_image, c_dim, genome):
             y_stop = mutated.shape[1]
 
         old_pixels = mutated[x:x_stop,y:y_stop,:]
-        # mutation = range_mutation - np.random.rand(3)*range_mutation*2
+        
+        if c_dim == 3:
+            mutation = range_mutation - np.random.rand(3)*range_mutation*2
+        else:
+            mutation = range_mutation - np.random.rand(1)*range_mutation*2
+
         new_pixels = old_pixels + mutation
 
         for ix in range(x_stop-x):
@@ -1358,19 +1358,18 @@ def mutate_pixels(input_image, c_dim, genome):
     return image, mutated_genome
     
 
-def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure, start_image):
+def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure, start_image, gpu=0):
     output_dir = "temp/" 
     repeat = 20
     half_h = int(h/2)
     size = [w,h]
-    gpu = 0
     mutation_rate = 0.15
     best_dir = output_dir
     skip = 1
     half_population = int(population_size/2)
 
     radius = 10
-    n = int(np.round(w*h/(radius*2*radius*2)))
+    n = 50 #int(np.round(w*h/(radius*2*radius*2)))
     winning_genome = {"number_mutation": n, "range_mutation": 50, "radius": radius}
 
     if not os.path.exists(output_dir + "images/"):
@@ -1384,6 +1383,9 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
     best_score = 0
     best_best_score = 0
     best_illusion = 0
+    best_coverage = 0
+    best_best_coverage = 0
+
     if start_image!="":
         #best_image_pixels = Image.open(start_image).convert('RGB')
         if c_dim==3:
@@ -1407,6 +1409,7 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
     generation = 0
     species_genomes_0 = winning_genome
     species_genomes_1 = winning_genome
+    secondary_image = best_image_pixels
     while True:
         print("generation", generation)
         generation = generation+1
@@ -1416,13 +1419,13 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
                 image_modified = image
             else:
                 # divide all images into 2 species?
-                if(i<population_size/2):
+                if(i<half_population):
                     # image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, winning_genome)
                     image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, species_genomes_0)
                     # dont' mutate the genome yet
                     mutated_genomes[i] = species_genomes_0
                 else:
-                    image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, species_genomes_1)
+                    image_modified, mutated_genomes[i] = mutate_pixels(secondary_image, c_dim, species_genomes_1)
                     # dont' mutate the genome yet
                     mutated_genomes[i] = species_genomes_1
 
@@ -1442,70 +1445,91 @@ def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, st
 
         #scores = calculate_scores(population_size, structure, original_vectors)
 
-        scores_direction, scores_strength = detailed_scores(population_size, structure, original_vectors)
+        scores_direction, scores_strength, scores_number = detailed_scores(population_size, structure, original_vectors)
 
         # calculate failure coverage
         score_d0 = np.var(scores_direction[0:half_population])
         score_d1 = np.var(scores_direction[half_population:population_size])
         score_s0 = np.var(scores_strength[0:half_population])
         score_s1 = np.var(scores_strength[half_population:population_size])
+        score_n0 = np.var(scores_number[0:half_population])
+        score_n1 = np.var(scores_number[half_population:population_size])
 
-        score_0 = score_d0+score_s0
-        score_1 = score_d1+score_s1
+        score_0 = score_d0+score_s0+score_n0
+        score_1 = score_d1+score_s1+score_n1
         print("scores_direction", scores_direction)
         print("scores_strength", scores_strength)
-        print("falure coverage", score_0, score_1)
+        print("scores_number", scores_number)
+        print("failure coverage", score_0, score_1)
 
         # take highest variance
+        best_coverage = score_1
         if score_0 >= score_1:
             pstart = 0
+            best_coverage = score_0;
         else:
             pstart = half_population
 
         best_score = 0
-        best_genome = {}
+        best_genome = winning_genome
         for i in range(pstart, pstart+half_population):
             score = scores_direction[i] + scores_strength[i]
-            if (score> best_score):
+            if (score >= best_score):
                 best_illusion = i
                 best_score = score 
-                best_genome = mutated_genomes[i]
 
-        species_genomes_0 = best_genome
-        species_genomes_1 = mutate_genome(best_genome)
+                #best_genome = mutated_genomes[i]
+                # prevent overrite that seems to happen
 
-        if(best_score>=best_best_score):
-            print("best_score", best_score , "best_best_score", best_best_score)
+        
+        move_to_name = "temp.png"
+        shutil.copy(images_list[best_illusion], move_to_name)
+        print("moved", images_list[best_illusion], "temp.png")
+        move_to_name = "temp_f.png"
+        image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
+        shutil.copy(image_name, move_to_name)
+
+        print("best_illusion", best_illusion, "best_score", best_score , "best_best_score", best_best_score)
+        print("best_best_coverage", best_best_coverage)
+
+        #if(best_score>=best_best_score):
+        if best_coverage >= best_best_coverage and best_illusion>=half_population:
+
+            print("new best coverage")
+            print("******changing best illusion")
             best_best_score = best_score
             winning_genome = best_genome
-            # save best illusion
-            image_name = images_list[best_illusion]
-            best_image_pixels = np.asarray(Image.open(image_name))
+            best_best_coverage = best_coverage
 
-            # move_to_name = best_dir + "/best_bw.png"
-            # shutil.copy(image_name, move_to_name)
+            # save best illusion
+            image_name = "temp.png"
             print("best", image_name, best_illusion)
-            image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
             move_to_name = best_dir + "/best.png"
-            shutil.copy(image_name, move_to_name)
-            #files.download(move_to_name)
-            index = int(best_illusion*(repeat/skip) + repeat-1)
-            image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
+
+            Image.open(image_name).save(move_to_name)
+            print("moved", image_name, move_to_name)
+
+            image_name = "temp_f.png"
             move_to_name = best_dir + "/best_flow.png"
-            shutil.copy(image_name, move_to_name)
+            # shutil.copy(image_name, move_to_name)
+            Image.open(image_name).save(move_to_name)
+            print("moved", image_name, move_to_name)
             #files.download(move_to_name)
+
+            best_image_pixels = secondary_image
+
+        secondary_image = np.asarray(Image.open(images_list[best_illusion]))
 
         print("best score", best_best_score)
         print("winning_genome", winning_genome)
 
-def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1):
+def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1, gpu = 0):
     repeat = 6
     limit = 1
     half_h = int(h/2)
     size = [w,h]
-    gpu = 0
 
-    best_dir = output_dir
+    best_dir = output_dir 
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
@@ -1516,7 +1540,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels
 
     def eval_genomes(genomes, config):
         get_fitnesses_neat(structure, genomes, model_name, config, w, h, channels,
-            c_dim=c_dim, best_dir=best_dir, gradient=gradient)
+            c_dim=c_dim, best_dir=best_dir, gradient=gradient, gpu = gpu)
 
     checkpointer = neat.Checkpointer(100)
 
@@ -1569,8 +1593,8 @@ if __name__ == "__main__":
     h = 120
     if args.size == "big":
         w = 640
-        h = 480
 
+        h = 480
 
     config = args.config
 
@@ -1589,11 +1613,13 @@ if __name__ == "__main__":
     print("config", config)
     print("gradient", args.gradient)
 
+    gpu = -1
+
     if(args.pixels<0):
         neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
-        args.color_space, args.checkpoint, args.gradient)
+        args.color_space, args.checkpoint, args.gradient, gpu)
     else:
-        population_size = 10
+        population_size = 20
         pixel_evolution(population_size, output_dir, args.model,string_to_intarray(args.channels),
-        args.color_space, args.structure, args.start)
+        args.color_space, args.structure, args.start, gpu)
 
