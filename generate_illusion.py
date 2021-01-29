@@ -1047,9 +1047,9 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
 
 
         #corner = [(x_cells*cell_size- image.size[0])/2, (y_cells*cell_size- image.size[1])/2]
-        
-        #transpose x and y for nupmy
-        average_image = np.zeros((new_image.shape[0], new_image.shape[1]))
+        average_image = np.zeros((size[1], size[0]))
+        # print(size)
+        # print(average_image.shape)
 
         # calculate weights based on distance
         # weight matrix for averages
@@ -1058,39 +1058,43 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
         for x in range(cell_size):
             for y in range(cell_size):
                 if (x == step and y == step):
-                    weights[x, y] = 2
+                    weights[x, y] = 2 # why
                 else:
                     # weight = 1 for distance = 1
                     distance_sq = (x-step)*(x-step) + (y-step)*(y-step)
                     weights[x, y] = 1/distance_sq
 
         # take weighted average (does it need to be weighted?)
-        for x in range(new_image.shape[0]):
-            for y in range(new_image.shape[1]):
+        for x in range(size[0]):
+            for y in range(size[1]):
                 # cell neighborhood
                 x0 = max(0, x - step)
                 y0 = max(0, y - step)
-                x1 = min(new_image.shape[0], x + step + 1) #subsetting leaves last number out
-                y1 = min(new_image.shape[1], y + step + 1)
+                x1 = min(size[0], x + step + 1) #subsetting leaves last number out
+                y1 = min(size[1], y + step + 1)
+                # print(x0,x1,y0,y1)
+                # print(weights[0:x1-x0, 0:y1-y0])
 
                 # weighted average
                 if c_dim == 3:
-                    pixel = np.mean(new_image[x0:x1, y0:y1, :])
-                    average_image[x,y,:] = pixel
+                    # inverted x and y
+                    pixel = np.mean(new_image[y0:y1, x0:x1, :])
+                    average_image[y,x,:] = pixel
                 else:
-                    pixel = np.sum(np.multiply(weights[0:x1-x0, 0:y1-y0],new_image[x0:x1, y0:y1]))
+                    # weights are also inverted to match image
+                    pixel = np.sum(np.multiply(weights[0:(y1-y0), 0:(x1-x0)], new_image[y0:y1, x0:x1]))
                     factor = np.sum(weights[0:x1-x0, 0:y1-y0])
                     pixel = pixel/factor
                     #print(pixel)
                     pixel = int(pixel)
-                    average_image[x,y] = pixel
+                    average_image[y,x] = pixel
 
         # save
         average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
         if c_dim == 3:
-            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0], :])
+            av = Image.fromarray(average_image)
         else:
-            av = Image.fromarray(average_image[0:image.size[1], 0:image.size[0]])
+            av = Image.fromarray(average_image)
             av = av.convert("L")
 
         av.save(average_image_path)
