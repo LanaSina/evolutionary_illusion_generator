@@ -1040,20 +1040,8 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
         # my own filter
         new_image.paste(image)#, corner)
         new_image = np.array(new_image)
-        print("new_image.shape", new_image.shape)
 
-        # if c_dim == 1:
-        #     new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
-
-        # Calculate mean coarse graining color
-        mean_color = np.mean(new_image)
-        # print("mean", mean_color)
-
-
-        #corner = [(x_cells*cell_size- image.size[0])/2, (y_cells*cell_size- image.size[1])/2]
         average_image = np.zeros((size[1], size[0]))
-        # print(size)
-        # print(average_image.shape)
 
         # calculate weights based on distance
         # weight matrix for averages
@@ -1069,9 +1057,8 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                     weights[x, y] = 1/distance_sq
 
 
-        print("size",size)
         # we do everything the opposite order of "size"
-        # take weighted average (does it need to be weighted?)
+        # blur: take weighted average (does it need to be weighted?)
         for x in range(size[1]):
             for y in range(size[0]):
                 # cell neighborhood
@@ -1079,15 +1066,12 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                 y0 = max(0, y - step)
                 x1 = min(size[1], x + step + 1) #subsetting leaves last number out
                 y1 = min(size[0], y + step + 1)
-                #print(x0,x1,y0,y1)
-                #print(weights[0:x1-x0, 0:y1-y0])
 
                 wx0 = step-(x-x0)
                 wy0 = step-(y-y0)
                 wx1 = x1-x+step
                 wy1 = y1-y+step
                 sub_weights = weights[wx0:wx1, wy0:wy1]
-                #print(wx0,wx1,wy0,wy1)
 
                 # weighted average
                 if c_dim == 3:
@@ -1097,14 +1081,26 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                 else:                    
                     pixel = np.sum(np.multiply(sub_weights, new_image[x0:x1, y0:y1]))
                     factor = np.sum(sub_weights)
-                    # print("factor", factor)
-                    # print(x0, x1, y0, y1)
                     pixel = pixel/factor
-                    #print(pixel)
-                    pixel = int(pixel)
-                    if x<10:
-                        pixel = new_image[x,y]
+                    # pixel = int(pixel)
                     average_image[x,y] = pixel
+
+        # now bias the coarse graining towards average color
+        # to have as many bins on each side of the average
+        mean_color = np.mean(new_image)
+        # print("mean", mean_color)
+
+
+        col_grain = np.mean(new_image) 
+        g0 = 
+        for x in range(size[1]):
+            for y in range(size[0]):
+                pixel = average_image[x,y]
+                if pixel <= mean_color:
+                    pixel = (pixel/col_grain)*(255/2)
+                else:
+                    pixel = (255/2)+(pixel/(255-col_grain))*(255/2)
+                    average_image[x,y] = int(pixel)
 
 
         # save
