@@ -1003,25 +1003,15 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
     if not os.path.exists(prediction_dir):
         os.makedirs(prediction_dir)
 
+    # neighborhood
     step = 5
+    # actually neighborhood size
     cell_size = step*2 + 1
     x_cells = math.ceil(size[0]/cell_size)
     y_cells = math.ceil(size[1]/cell_size)
     original_vectors = [None] * len(images_list)
     # number of recognized colors
-    grain = 255
-
-    # weight matrix for averages
-    center = step
-    weights = np.ones((cell_size, cell_size))
-    for x in range(cell_size):
-        for y in range(cell_size):
-            if (x == step and y == step):
-                weights[x, y] = 2
-            else:
-                # weight = 1 for distance = 1
-                distance_sq = (x-step)*(x-step) + (y-step)*(y-step)
-                weights[x, y] = 1/distance_sq
+    # grain = 255
 
     # print("weights")
     # print(weights)
@@ -1039,30 +1029,51 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
             image  = Image.open(input_path).convert("L")
             new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (bg))
 
-        # frame = cv2.imread(input_path)
+        frame = cv2.imread(input_path)
         # bilateral filter: http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MANDUCHI1/Bilateral_Filtering.html
         #filters from https://qiita.com/stnk20/items/c36bef359a8f92d058b0 cv2.GaussianBlur(frame,(3,3),0)
-        # average_image = cv2.bilateralFilter(frame,11,11,11) #cv2.GaussianBlur(frame,(3,3),0)  # 
+        #average_image = cv2.bilateralFilter(frame, 15, 80, 80) #cv2.GaussianBlur(frame,(3,3),0)  # 
 
-        # average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
-        # cv2.imwrite(average_image_path, average_image)
 
-        #filters from https://qiita.com/stnk20/items/c36bef359a8f92d058b0 cv2.GaussianBlur(frame,(3,3),0)
-
-        #corner = [(x_cells*cell_size- image.size[0])/2, (y_cells*cell_size- image.size[1])/2]
+        # my own filter
         new_image.paste(image)#, corner)
         new_image = np.array(new_image)
         if c_dim == 1:
             new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
 
-        # transpose x and y for nupmy
+        # Calculate mean coarse graining color
+        mean_color = np.mean(new_image)
+        # print("mean", mean_color)
+
+
+        #corner = [(x_cells*cell_size- image.size[0])/2, (y_cells*cell_size- image.size[1])/2]
+        
+        #transpose x and y for nupmy
         average_image = np.zeros((new_image.shape[0], new_image.shape[1]))
+
+        # calculate weights based on distance
+        # weight matrix for averages
+        center = step
+        weights = np.ones((cell_size, cell_size))
+        for x in range(cell_size):
+            for y in range(cell_size):
+                if (x == step and y == step):
+                    weights[x, y] = 2
+                else:
+                    # weight = 1 for distance = 1
+                    distance_sq = (x-step)*(x-step) + (y-step)*(y-step)
+                    weights[x, y] = 1/distance_sq
+
+        # take weighted average (does it need to be weighted?)
         for x in range(new_image.shape[0]):
             for y in range(new_image.shape[1]):
+                # cell neighborhood
                 x0 = max(0, x - step)
                 y0 = max(0, y - step)
                 x1 = min(new_image.shape[0], x + step + 1) #subsetting leaves last number out
                 y1 = min(new_image.shape[1], y + step + 1)
+
+                # weighted average
                 if c_dim == 3:
                     pixel = np.mean(new_image[x0:x1, y0:y1, :])
                     average_image[x,y,:] = pixel
@@ -1073,6 +1084,7 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                     #print(pixel)
                     pixel = int(pixel)
                     average_image[x,y] = pixel
+
         # save
         average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
         if c_dim == 3:
