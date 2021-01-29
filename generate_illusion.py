@@ -940,7 +940,7 @@ def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, grad
             s_val = -1 + s*s_step
             index = i*pertype_count+j
             image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config,
-                s_val = s_val, bg = 0, gradient=gradient)
+                s_val = s_val, bg = 1, gradient=gradient)
             # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
             # save  image
@@ -1004,7 +1004,7 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
         os.makedirs(prediction_dir)
 
     # neighborhood
-    step = 5
+    step = 10
     # actually neighborhood size
     cell_size = step*2 + 1
     x_cells = math.ceil(size[0]/cell_size)
@@ -1041,7 +1041,8 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
         new_image.paste(image)#, corner)
         new_image = np.array(new_image)
 
-        average_image = np.zeros((size[1], size[0]))
+        average_image = new_image #np.zeros((size[1], size[0]))
+        post_grain_image = np.zeros((size[1], size[0]))
 
         # calculate weights based on distance
         # weight matrix for averages
@@ -1057,50 +1058,110 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                     weights[x, y] = 1/distance_sq
 
 
-        # we do everything the opposite order of "size"
-        # blur: take weighted average (does it need to be weighted?)
-        for x in range(size[1]):
-            for y in range(size[0]):
-                # cell neighborhood
-                x0 = max(0, x - step)
-                y0 = max(0, y - step)
-                x1 = min(size[1], x + step + 1) #subsetting leaves last number out
-                y1 = min(size[0], y + step + 1)
+        # # we do everything the opposite order of "size"
+        # # blur: take weighted average (does it need to be weighted?)
+        # for x in range(size[1]):
+        #     for y in range(size[0]):
+        #         # cell neighborhood
+        #         x0 = max(0, x - step)
+        #         y0 = max(0, y - step)
+        #         x1 = min(size[1], x + step + 1) #subsetting leaves last number out
+        #         y1 = min(size[0], y + step + 1)
 
-                wx0 = step-(x-x0)
-                wy0 = step-(y-y0)
-                wx1 = x1-x+step
-                wy1 = y1-y+step
-                sub_weights = weights[wx0:wx1, wy0:wy1]
+        #         wx0 = step-(x-x0)
+        #         wy0 = step-(y-y0)
+        #         wx1 = x1-x+step
+        #         wy1 = y1-y+step
+        #         sub_weights = weights[wx0:wx1, wy0:wy1]
 
-                # weighted average
-                if c_dim == 3:
-                    # inverted x and y
-                    pixel = np.mean(new_image[y0:y1, x0:x1, :])
-                    average_image[y,x,:] = pixel
-                else:                    
-                    pixel = np.sum(np.multiply(sub_weights, new_image[x0:x1, y0:y1]))
-                    factor = np.sum(sub_weights)
-                    pixel = pixel/factor
-                    # pixel = int(pixel)
-                    average_image[x,y] = pixel
+        #         # weighted average
+        #         if c_dim == 3:
+        #             # inverted x and y
+        #             pixel = np.mean(new_image[y0:y1, x0:x1, :])
+        #             average_image[y,x,:] = pixel
+        #         else:                    
+        #             pixel = np.sum(np.multiply(sub_weights, new_image[x0:x1, y0:y1]))
+        #             factor = np.sum(sub_weights)
+        #             pixel = pixel/factor
+        #             # now bias the coarse graining towards average color
+        #             # local color coarse graining
+        #             # mean_color = np.mean(new_image[x0:x1, y0:y1])
+        #             # if pixel <= mean_color:
+        #             #     if mean_color == 0: # and pixel == 0
+        #             #         pixel = 0
+        #             #     else:
+        #             #         pixel = (pixel/mean_color)*(255/2)
+        #             # else:
+        #             #     #print(pixel, mean_color)
+        #             #     if mean_color == 255: # this branch is true sometimes because of float errors, px>255
+        #             #         pixel = 255
+        #             #     else:                            
+        #             #         pixel = (255/2)+(pixel/(255-mean_color))*(255/2)
 
-        # now bias the coarse graining towards average color
-        # to have as many bins on each side of the average
-        mean_color = np.mean(new_image)
-        # print("mean", mean_color)
+        #             # pixel = int(pixel)
+        #             average_image[x,y] = pixel
 
 
-        col_grain = np.mean(new_image) 
-        g0 = 
+        # local color coarse graining
+        c_step = step
         for x in range(size[1]):
             for y in range(size[0]):
                 pixel = average_image[x,y]
-                if pixel <= mean_color:
-                    pixel = (pixel/col_grain)*(255/2)
+                # cell neighborhood
+                x0 = max(0, x - c_step)
+                y0 = max(0, y - c_step)
+                x1 = min(size[1], x + c_step + 1) #subsetting leaves last number out
+                y1 = min(size[0], y + c_step + 1)
+
+                # wx0 = step-(x-x0)
+                # wy0 = step-(y-y0)
+                # wx1 = x1-x+step
+                # wy1 = y1-y+step
+                # sub_weights = weights[wx0:wx1, wy0:wy1]
+
+                # sensitivity will be be higher around this mean color
+                # mean_color = np.sum(np.multiply(sub_weights, average_image[x0:x1, y0:y1]))                
+                # factor = np.sum(sub_weights)
+                # mean_color = mean_color/factor
+
+                mean_color = np.mean(average_image[x0:x1, y0:y1])
+                distance_sq = 0.2*(mean_color-pixel)*(mean_color-pixel)
+
+                if pixel >= mean_color:
+                    pixel = min(255,mean_color+distance_sq)
                 else:
-                    pixel = (255/2)+(pixel/(255-col_grain))*(255/2)
-                    average_image[x,y] = int(pixel)
+                    pixel = max(0,mean_color-distance_sq)
+
+
+
+
+                # if pixel <= mean_color:
+                #     if mean_color == 0: # and pixel == 0
+                #         pixel = 0
+                #     else:
+                #         pixel = (pixel/mean_color)*(255/2.0)
+                # else:
+                #     #print(pixel, mean_color)
+                #     if mean_color == 255: # this branch is true sometimes because of float errors, px>255
+                #         pixel = 255
+                #     else:                            
+                #         pixel = (255/2.0)+(pixel/(255-mean_color))*(255/2.0)
+
+                pixel = int(pixel)
+                post_grain_image[x,y] = pixel
+
+        # # global color coarse graining (need pixel not to be int at firs)
+        # # to have as many bins on each side of the average
+        # mean_color = np.mean(new_image)
+        # col_grain = np.mean(new_image) 
+        # for x in range(size[1]):
+        #     for y in range(size[0]):
+        #         pixel = average_image[x,y]
+        #         if pixel <= mean_color:
+        #             pixel = (pixel/col_grain)*(255/2)
+        #         else:
+        #             pixel = (255/2)+(pixel/(255-col_grain))*(255/2) div by 0
+        #         average_image[x,y] = int(pixel)
 
 
         # save
@@ -1108,7 +1169,7 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
         if c_dim == 3:
             av = Image.fromarray(average_image)
         else:
-            av = Image.fromarray(average_image)
+            av = Image.fromarray(post_grain_image)
             av = av.convert("L")
 
         av.save(average_image_path)
@@ -1160,7 +1221,7 @@ def calculate_scores(population_size, structure, original_vectors, s_step=2):
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strength = 0.4 # 0.4
+                max_strength = 0.3 # 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
