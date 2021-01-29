@@ -1027,7 +1027,9 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
             new_image = Image.new('RGB', (x_cells*cell_size, y_cells*cell_size), (bg, bg, bg))
         else:
             image  = Image.open(input_path).convert("L")
-            new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (bg))
+            #print(image.size)
+            # new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (bg))
+            new_image = Image.new('L', (size), (bg))
 
         frame = cv2.imread(input_path)
         # bilateral filter: http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MANDUCHI1/Bilateral_Filtering.html
@@ -1038,8 +1040,10 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
         # my own filter
         new_image.paste(image)#, corner)
         new_image = np.array(new_image)
-        if c_dim == 1:
-            new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
+        print("new_image.shape", new_image.shape)
+
+        # if c_dim == 1:
+        #     new_image = new_image.reshape((y_cells*cell_size, x_cells*cell_size))
 
         # Calculate mean coarse graining color
         mean_color = np.mean(new_image)
@@ -1064,30 +1068,44 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                     distance_sq = (x-step)*(x-step) + (y-step)*(y-step)
                     weights[x, y] = 1/distance_sq
 
+
+        print("size",size)
+        # we do everything the opposite order of "size"
         # take weighted average (does it need to be weighted?)
-        for x in range(size[0]):
-            for y in range(size[1]):
+        for x in range(size[1]):
+            for y in range(size[0]):
                 # cell neighborhood
                 x0 = max(0, x - step)
                 y0 = max(0, y - step)
-                x1 = min(size[0], x + step + 1) #subsetting leaves last number out
-                y1 = min(size[1], y + step + 1)
-                # print(x0,x1,y0,y1)
-                # print(weights[0:x1-x0, 0:y1-y0])
+                x1 = min(size[1], x + step + 1) #subsetting leaves last number out
+                y1 = min(size[0], y + step + 1)
+                #print(x0,x1,y0,y1)
+                #print(weights[0:x1-x0, 0:y1-y0])
+
+                wx0 = step-(x-x0)
+                wy0 = step-(y-y0)
+                wx1 = x1-x+step
+                wy1 = y1-y+step
+                sub_weights = weights[wx0:wx1, wy0:wy1]
+                #print(wx0,wx1,wy0,wy1)
 
                 # weighted average
                 if c_dim == 3:
                     # inverted x and y
                     pixel = np.mean(new_image[y0:y1, x0:x1, :])
                     average_image[y,x,:] = pixel
-                else:
-                    # weights are also inverted to match image
-                    pixel = np.sum(np.multiply(weights[0:(y1-y0), 0:(x1-x0)], new_image[y0:y1, x0:x1]))
-                    factor = np.sum(weights[0:x1-x0, 0:y1-y0])
+                else:                    
+                    pixel = np.sum(np.multiply(sub_weights, new_image[x0:x1, y0:y1]))
+                    factor = np.sum(sub_weights)
+                    # print("factor", factor)
+                    # print(x0, x1, y0, y1)
                     pixel = pixel/factor
                     #print(pixel)
                     pixel = int(pixel)
-                    average_image[y,x] = pixel
+                    if x<10:
+                        pixel = new_image[x,y]
+                    average_image[x,y] = pixel
+
 
         # save
         average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
