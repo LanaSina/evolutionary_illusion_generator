@@ -1040,9 +1040,14 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
             new_image = Image.new('L', (x_cells*cell_size, y_cells*cell_size), (bg))
 
         # frame = cv2.imread(input_path)
+        # bilateral filter: http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MANDUCHI1/Bilateral_Filtering.html
+        #filters from https://qiita.com/stnk20/items/c36bef359a8f92d058b0 cv2.GaussianBlur(frame,(3,3),0)
         # average_image = cv2.bilateralFilter(frame,11,11,11) #cv2.GaussianBlur(frame,(3,3),0)  # 
+
         # average_image_path = output_dir + "prediction/" + str(index).zfill(10) + ".png"
         # cv2.imwrite(average_image_path, average_image)
+
+        #filters from https://qiita.com/stnk20/items/c36bef359a8f92d058b0 cv2.GaussianBlur(frame,(3,3),0)
 
         #corner = [(x_cells*cell_size- image.size[0])/2, (y_cells*cell_size- image.size[1])/2]
         new_image.paste(image)#, corner)
