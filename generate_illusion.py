@@ -1004,17 +1004,13 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
         os.makedirs(prediction_dir)
 
     # neighborhood
-    step = 10
+    step = 5
     # actually neighborhood size
     cell_size = step*2 + 1
     x_cells = math.ceil(size[0]/cell_size)
     y_cells = math.ceil(size[1]/cell_size)
     original_vectors = [None] * len(images_list)
-    # number of recognized colors
-    # grain = 255
 
-    # print("weights")
-    # print(weights)
     print("Averaging images, calculatng flows")
     # average each cell with its neighbors and save the image
     index = 0
@@ -1113,24 +1109,41 @@ def get_flows_mean(images_list, size,  output_dir, c_dim):
                 x1 = min(size[1], x + c_step + 1) #subsetting leaves last number out
                 y1 = min(size[0], y + c_step + 1)
 
+
                 # wx0 = step-(x-x0)
                 # wy0 = step-(y-y0)
                 # wx1 = x1-x+step
                 # wy1 = y1-y+step
                 # sub_weights = weights[wx0:wx1, wy0:wy1]
 
+
+                 # make color a function of the variance at that neighbrhood
+                col_var = np.var(average_image[x0:x1, y0:y1])
+                col_mean = np.mean(average_image[x0:x1, y0:y1])
+                # difference from the mean
+                d = col_mean-pixel
+                # max = c2/4  (multiplied by (𝑁−1)/𝑁
+                n = (step+1)*(step+1)
+                max_var = 255*2/4 * ( n-1 )/n
+
+                #print(col_var,col_mean, max_var)
+                # extend the distance between pixel and mean
+                # if the variance is low
+                # reduce distance is var is high
+                pixel = col_mean+d*2*(1-col_var/max_var)
+                pixel = min(pixel, 255)
+                pixel = min(pixel, 255)
+   
+
+              
                 # sensitivity will be be higher around this mean color
-                # mean_color = np.sum(np.multiply(sub_weights, average_image[x0:x1, y0:y1]))                
-                # factor = np.sum(sub_weights)
-                # mean_color = mean_color/factor
+                # mean_color = np.mean(average_image[x0:x1, y0:y1])
+                # distance_sq = 0.01*(mean_color-pixel)*(mean_color-pixel)
 
-                mean_color = np.mean(average_image[x0:x1, y0:y1])
-                distance_sq = 0.2*(mean_color-pixel)*(mean_color-pixel)
-
-                if pixel >= mean_color:
-                    pixel = min(255,mean_color+distance_sq)
-                else:
-                    pixel = max(0,mean_color-distance_sq)
+                # if pixel >= mean_color:
+                #     pixel = min(255,mean_color+distance_sq)
+                # else:
+                #     pixel = max(0,mean_color-distance_sq)
 
 
 
