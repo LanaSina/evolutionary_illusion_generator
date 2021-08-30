@@ -340,9 +340,11 @@ def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, grad
     #rotate image by 90 degrees
     angle = 90
     rotations = int(360/angle)
+    # number of time to repeat a full rotation
+    rep_rotations = (repeat/rotations) + repeat %% rotations
     images_list = [None]*total_count
-    # rotated images
-    rotated_images_list = [None]* (total_count + repeat)
+    # rotated images for 1 pattern
+    rotated_images_list = [None]* rotations
     i = 0
     index = 0
     image_inputs = create_grid(structure, w, h, 10)
@@ -362,25 +364,29 @@ def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, grad
 
         #rotate image by 90 degrees
         angle = 90
-        repeat_list = [None]* repeat
-        repeat_list[0] = image_name
+        #repeat_list = [None]* repeat
+        #repeat_list[0] = image_name
+        rotated_images_list[0] = image_name 
         for ii in range(1:rotations):
             # this will cause issues later
-            index+=1
             rotated_image = image_whitebg.rotate(angle*ii, expand=True)
-            image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
+            image_name = output_dir + "images/" + str(index+ii).zfill(10) + ".png"
             rotated_image.save('image_name')
-            repeat_list[ii] = image_name
+            rotated_images_list[ii] = image_name
+            for r in range(rep_rotations):
+                images_list[index:index+rotations] = rotated_images_list
 
-#!! todo
-        images_list[index] = image_name
-        repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
 
+        # repeat rotations
+        for r in range(rep_rotations):
+            max_range = min(index+rotations, total_count)
+            images_list[index:max_range] = rotated_images_list
+            index+=max_range
 
         j = j+1
     i = i + 1
 
-    return images_list, repeated_images_list, image_inputs
+    return images_list, image_inputs
 
 
 def calculate_scores(population_size, structure, original_vectors, s_step=2):
@@ -524,7 +530,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     pertype_count = int((2/s_step))
     total_count = len(population)*pertype_count
 #! todo    
-    images_list, repeated_images_list, image_inputs = cppn_evolution(population, repeat,  structure, w, h, gpu, config, c_dim, gradient,
+    images_list, image_inputs = cppn_evolution(population, repeat,  structure, w, h, gpu, config, c_dim, gradient,
         output_dir, pertype_count, total_count, s_step)
 
     # using mean
@@ -562,14 +568,14 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     image_blackbg.save(image_name, "PNG")
     
     # create enhanced image
-    e_w = 800
-    e_h = 800
-    e_grid = enhanced_image_grid(e_w, e_h, structure)
-    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
-        s_val = -1, bg = 1, gradient=gradient)
+    # e_w = 800
+    # e_h = 800
+    # e_grid = enhanced_image_grid(e_w, e_h, structure)
+    # image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
+    #     s_val = -1, bg = 1, gradient=gradient)
 
-    image_name = best_dir + "/enhanced.png"
-    image.save(image_name)
+    # image_name = best_dir + "/enhanced.png"
+    # image.save(image_name)
 
 def get_random_pixels(w, h, c_dim):
     img_data = np.random.rand(w,h,c_dim) 
