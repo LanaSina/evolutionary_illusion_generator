@@ -371,7 +371,9 @@ def get_repeat_rotation_list(partial_list, total_repeat):
     full_list[end_index:end_index+partial_rotation] = partial_list[0:partial_rotation]
     return full_list
 
-def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, gradient,
+# returns input patterns and list of rotated images
+# todo: cleanup
+def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradient,
     output_dir, pertype_count, total_count, s_step):
 
     #rotate image by 90 degrees
@@ -403,7 +405,7 @@ def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, grad
         images_list[index:index+repeat] = repeated_list
 
         index += repeat
-        
+
         j = j+1
     i = i + 1
 
@@ -550,7 +552,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     s_step = 2
     pertype_count = int((2/s_step))
     total_count = len(population)*pertype_count
-    images_list, image_inputs = cppn_evolution(population, repeat,  structure, w, h, gpu, config, c_dim, gradient,
+    images_list, image_inputs = cppn_patterns(population, repeat,  structure, w, h, gpu, config, c_dim, gradient,
         output_dir, pertype_count, total_count, s_step)
 
     # calculate fitnesses using Prednet
@@ -569,37 +571,29 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     best_illusion = 0
     best_genome = None
     for genome_id, genome in population:
-        genome.fitness = scores[i][1]
-        if (scores[i][1]> best_score):
-            best_illusion = i
-            best_score = scores[i][1]
-            best_genome = genome
-        i = i+1
+        genome.fitness = 0.01 #scores[i][1]
+        # if (scores[i][1]> best_score):
+        #     best_illusion = i
+        #     best_score = scores[i][1]
+        #     best_genome = genome
+        # i = i+1
 
-    # save best illusion
-    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
-    print("best", image_name, best_illusion)
-    move_to_name = best_dir + "/best.png"
-    shutil.copy(image_name, move_to_name)
-    index = int(best_illusion*(repeat/skip) + repeat-1)
-    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
-    move_to_name = best_dir + "/best_flow.png"
-    shutil.copy(image_name, move_to_name)
+    # # save best illusion
+    # image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+    # print("best", image_name, best_illusion)
+    # move_to_name = best_dir + "/best.png"
+    # shutil.copy(image_name, move_to_name)
+    # index = int(best_illusion*(repeat/skip) + repeat-1)
+    # image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
+    # move_to_name = best_dir + "/best_flow.png"
+    # shutil.copy(image_name, move_to_name)
 
-    image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
-        s_val = -1, bg = 0, gradient=gradient)
-    image_name = best_dir + "/best_black_bg.png"
-    image_blackbg.save(image_name, "PNG")
+    # image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
+    #     s_val = -1, bg = 0, gradient=gradient)
+    # image_name = best_dir + "/best_black_bg.png"
+    # image_blackbg.save(image_name, "PNG")
     
-    # create enhanced image
-    # e_w = 800
-    # e_h = 800
-    # e_grid = enhanced_image_grid(e_w, e_h, structure)
-    # image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
-    #     s_val = -1, bg = 1, gradient=gradient)
 
-    # image_name = best_dir + "/enhanced.png"
-    # image.save(image_name)
 
 def get_random_pixels(w, h, c_dim):
     img_data = np.random.rand(w,h,c_dim) 
