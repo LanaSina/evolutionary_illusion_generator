@@ -334,17 +334,51 @@ def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
 
+
+# rotates an image by `angle` until it reaches 360 degrees
+# save the rotations and return the list of file names
+# index is the file numer name for saving
+# angle = clockwise rotation
+def full_rotation(image, angle, output_dir, index=0):
+    rotations = int(360/angle)
+    rotated_images_list = [None]*rotations
+
+    image_name = output_dir + "/" + str(index).zfill(10) + ".png"
+    rotated_images_list[0] = image_name 
+
+    for i in range(1,rotations):
+        rotated_image = image.rotate(-angle*i, expand=True)
+        image_name = output_dir + "/" + str(index+i).zfill(10) + ".png"
+        rotated_image.save(image_name)
+        rotated_images_list[i] = image_name
+
+    return rotated_images_list
+
+
+# repeats a list to fill another bigger list
+# returns filled-up list
+# total_repeat = expected size of filled-up list
+def get_repeat_rotation_list(partial_list, total_repeat):
+    rotations = len(partial_list)
+    full_list = [None]*total_repeat
+
+    # number of time to repeat a full rotation
+    rep_rotations = int(total_repeat/rotations)
+    end_index = rep_rotations*rotations
+    full_list[0:end_index] = partial_list*rep_rotations
+    # remaining partial rotation
+    partial_rotation = total_repeat % rotations
+    full_list[end_index:end_index+partial_rotation] = partial_list[0:partial_rotation]
+    return full_list
+
 def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, gradient,
     output_dir, pertype_count, total_count, s_step):
 
     #rotate image by 90 degrees
     angle = 90
     rotations = int(360/angle)
-    # number of time to repeat a full rotation
-    rep_rotations = (repeat/rotations) + repeat %% rotations
     images_list = [None]*total_count
-    # rotated images for 1 pattern
-    rotated_images_list = [None]* rotations
+
     i = 0
     index = 0
     image_inputs = create_grid(structure, w, h, 10)
@@ -359,30 +393,17 @@ def cppn_evolution(population, repeat, structure, w, h, gpu, config, c_dim, grad
         image_whitebg.save(image_name, "PNG")
         image = np.asarray(Image.open(image_name))
 
-        #images_list[index] = image_name
-        index += 1
+        
 
-        #rotate image by 90 degrees
-        angle = 90
-        #repeat_list = [None]* repeat
-        #repeat_list[0] = image_name
-        rotated_images_list[0] = image_name 
-        for ii in range(1:rotations):
-            # this will cause issues later
-            rotated_image = image_whitebg.rotate(angle*ii, expand=True)
-            image_name = output_dir + "images/" + str(index+ii).zfill(10) + ".png"
-            rotated_image.save('image_name')
-            rotated_images_list[ii] = image_name
-            for r in range(rep_rotations):
-                images_list[index:index+rotations] = rotated_images_list
+        # save rotated images and get file names
+        rotated_images_list = full_rotation(image_whitebg, angle, output_dir + "images/", ii)
 
+        # repeat rotated names as necessary
+        repeated_list = get_repeat_rotation_list(rotated_images_list, repeat)
+        images_list[index:index+repeat] = repeated_list
 
-        # repeat rotations
-        for r in range(rep_rotations):
-            max_range = min(index+rotations, total_count)
-            images_list[index:max_range] = rotated_images_list
-            index+=max_range
-
+        index += repeat
+        
         j = j+1
     i = i + 1
 
@@ -529,10 +550,13 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     s_step = 2
     pertype_count = int((2/s_step))
     total_count = len(population)*pertype_count
-#! todo    
     images_list, image_inputs = cppn_evolution(population, repeat,  structure, w, h, gpu, config, c_dim, gradient,
         output_dir, pertype_count, total_count, s_step)
 
+    # calculate fitnesses using Prednet
+    # 1 get absolute color differences
+    # 2 get divergence from "black/grey/white" ie inter-rgb-difference magnitude
+    
     # using mean
     original_vectors = get_flows_mean(images_list, size, output_dir, c_dim)
 
