@@ -386,8 +386,7 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
     image_inputs = create_grid(structure, w, h, 10)
     for genome_id, genome in population:
         j = 0
-        image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config,
-            s_val = s_val, bg = 1, gradient=gradient)
+        image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, bg = 1, gradient=gradient)
         # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
         # save  image
@@ -398,7 +397,7 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
         
 
         # save rotated images and get file names
-        rotated_images_list = full_rotation(image_whitebg, angle, output_dir + "images/", ii)
+        rotated_images_list = full_rotation(image_whitebg, angle, output_dir + "images/", index)
 
         # repeat rotated names as necessary
         repeated_list = get_repeat_rotation_list(rotated_images_list, repeat)
@@ -560,11 +559,11 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     # 2 get divergence from "black/grey/white" ie inter-rgb-difference magnitude
     
     # using mean
-    original_vectors = get_flows_mean(images_list, size, output_dir, c_dim)
+    #original_vectors = get_flows_mean(images_list, size, output_dir, c_dim)
 
 #! todo  
     # calculate how much the colors diverge
-    scores = calculate_scores(len(population), structure, original_vectors, s_step)
+    #scores = calculate_scores(len(population), structure, original_vectors, s_step)
 
     i = 0
     best_score = 0
