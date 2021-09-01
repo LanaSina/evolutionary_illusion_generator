@@ -28,91 +28,6 @@ class StructureType(IntEnum):
     CirclesFree = 3
 
 
-# todo: use in get_grid
-# fill carthesian grids with polar coordinates
-# r_len = repetition length
-# xx yy cartesian x and y, origin relative to whole grid
-# x,y coordinates relative to center
-# direction: 1 or -1
-
-# todo: remove max radius
-def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Circles): #max diameter?
-    r_total = np.sqrt(x*x + y*y)
-
-    n_ratios = 10
-    r_ratios = np.zeros(n_ratios)
-    r_ratios[n_ratios-1] = 1
-
-    for i in range(2,n_ratios+1):
-        r_ratios[n_ratios-i] = r_ratios[n_ratios-i+1]*1.5
-
-    r_ratios = r_ratios/r_ratios[0]
-
-    # limit values to frame
-    theta = 0
-    r = -1
-    if r_total <= max_radius/2:
-        # it repeats every r_len
-        radius = min(1, r_total/(max_radius/2))
-        
-        radius_index = 0
-        for i in range(1,n_ratios-1):
-            if radius > r_ratios[i]:
-                r = (radius-r_ratios[i])/(r_ratios[i-1]-r_ratios[i])
-                radius_index = n_ratios-i-1
-                break;
-
-        if structure == StructureType.Circles:
-            # now structure theta values
-            if x == 0:
-                theta = math.pi/2.0
-            else:
-                theta = np.arctan(y*1.0/x)
-
-            if x<0:
-                theta = theta + math.pi
-
-            r_index = radius_index 
-            if r_index%2 == 1:
-                # rotate
-                theta = (theta + math.pi/4.0) 
-
-            # focus on 1 small pattern
-            theta = theta % (math.pi/6.0)
-
-            if direction<0:
-                theta = (math.pi/6.0) - theta
-
-        elif structure == StructureType.CirclesFree:
-
-            # now structure theta values
-            if x == 0:
-                theta = math.pi/2.0
-            else:
-                theta = np.arctan(y*1.0/x)
-
-            if x<0:
-                theta = theta + math.pi
-
-            r_index = radius_index
-            if r_index%2 == 1:
-                # rotate
-                theta = (theta + math.pi/4.0) 
-
-            if direction<0:
-                theta = - theta
-
-        # keep some white space
-        if (r>0.9) or (r<0.1):
-            r = -1
-            theta = 0
-        else :
-            #final normalization
-            r = r/0.8
-
-    return r, theta
-
-
 def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
     r_mat = None 
@@ -128,21 +43,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
     y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
     x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-
-    # for xx in range(x_res):
-    #     # center
-    #     x = xx - (x_res/2)
-    #     for yy in range(y_res):
-    #         y = yy - (y_res/2)
-
-    #         r,theta = fill_circle(x, y, xx, yy, y_res, StructureType.CirclesFree)
-
-    #         x_mat[yy,xx] = r 
-    #         y_mat[yy,xx] = theta 
-    # return {"x_mat": x_mat, "y_mat": y_mat}
-
-    # # x = r × cos( θ )
-    # # y = r × sin( θ )
 
     for xx in range(x_res):
         # center
@@ -272,15 +172,18 @@ def rgb2gray(rgb):
 # save the rotations and return the list of file names
 # index is the file numer name for saving
 # angle = clockwise rotation
-def full_rotation(image, angle, output_dir, index=0):
+def full_rotation(image, angle, output_dir, index=0, c_dim=1):
     rotations = int(360/angle)
     rotated_images_list = [None]*rotations
 
     image_name = output_dir + "/" + str(index).zfill(3) + ".png"
     rotated_images_list[0] = image_name 
+    white_color = (255,255,255)
+    if c_dim == 1:
+        white_color = 255
 
     for i in range(1,rotations):
-        rotated_image = image.rotate(-angle*i, expand=False, fillcolor=(255,255,255))
+        rotated_image = image.rotate(-angle*i, expand=False, fillcolor=white_color)
         image_name = output_dir + "/" + str(index+i).zfill(3) + ".png"
         rotated_image.save(image_name)
         rotated_images_list[i] = image_name
@@ -336,7 +239,7 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
         image_whitebg.save(image_name, "PNG")
         image = np.asarray(Image.open(image_name))
         # save rotated images and get file names
-        rotated_images_list = full_rotation(image_whitebg, angle, pattern_folder, 0)
+        rotated_images_list = full_rotation(image_whitebg, angle, pattern_folder, 0, c_dim)
 
         # repeat rotated names as necessary
         repeated_list = get_repeat_rotation_list(rotated_images_list, repeat)
