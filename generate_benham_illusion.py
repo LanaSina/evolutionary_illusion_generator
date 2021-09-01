@@ -34,6 +34,8 @@ class StructureType(IntEnum):
 # xx yy cartesian x and y, origin relative to whole grid
 # x,y coordinates relative to center
 # direction: 1 or -1
+
+# todo: remove max radius
 def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Circles): #max diameter?
     r_total = np.sqrt(x*x + y*y)
 
@@ -117,130 +119,66 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
     x_mat = None
     y_mat = None
     num_points = x_res*y_res
+    max_radius = (h/2) - 5
    
-    if structure == StructureType.Bands:
-        y_rep = 4
-        padding = 10
-        total_padding = padding*(y_rep-1)
-        y_len = int(y_res/y_rep) 
-        sc = scaling/y_rep
-        a = np.linspace(-1*sc, sc, num = y_len-padding)
-        to_tile = np.concatenate((a,np.zeros((padding))))
-        y_range = np.tile(to_tile, y_rep)
-       # x_range = np.linspace(-1*scaling, scaling, num = x_res)
+    # just some nice circles
+    x_range = np.linspace(-1*scaling, scaling, num = x_res)
+    y_range = np.linspace(-1*scaling, scaling, num = y_res)
 
-        x_rep = 5
-        x_len = int(x_res/x_rep) 
-        sc = scaling/x_rep
-        a = np.linspace(-1*sc, sc, num = x_len)
-        x_range = np.tile(a, x_rep)
-        # reverse the x axis 
-        x_reverse = np.ones((y_res, 1))
-        start = y_len
-        while start<y_res:
-            # keep some white space
-            # top of previous band
-            m_start = max(0,start-padding)
-            x_reverse[m_start:start] = np.zeros((start-m_start,1))
 
-            # bottom of current band
-            stop = min(y_res, start+y_len)
-            m_start = max(stop - padding, 0) #max(0,start-padding)
-            x_reverse[m_start:stop] = np.zeros((stop-m_start,1))
-            x_reverse[start:stop] =  -x_reverse[start:stop]
+    y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
+    x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
 
-            start = start+2*y_len
+    # for xx in range(x_res):
+    #     # center
+    #     x = xx - (x_res/2)
+    #     for yy in range(y_res):
+    #         y = yy - (y_res/2)
 
-        x_mat = np.matmul(x_reverse, x_range.reshape((1, x_res)))
-        y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
+    #         r,theta = fill_circle(x, y, xx, yy, y_res, StructureType.CirclesFree)
 
-        return {"x_mat": x_mat, "y_mat": y_mat} 
+    #         x_mat[yy,xx] = r 
+    #         y_mat[yy,xx] = theta 
+    # return {"x_mat": x_mat, "y_mat": y_mat}
 
-    elif structure == StructureType.Circles:
-        #r_rep = 3
-        #r_len = int(y_res/(2*r_rep))
-        # r_len = [int(0.4*y_res/2), int(0.25*y_res/2) + int(0.15*y_res/2)]
-        r_ratios = [0.6,0.3,0.1] 
-        x_range = np.linspace(-1*scaling, scaling, num = x_res)
-        y_range = np.linspace(-1*scaling, scaling, num = y_res)
+    # # x = r × cos( θ )
+    # # y = r × sin( θ )
 
- 
-        y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-        # x = r × cos( θ )
-        # y = r × sin( θ )
-        #radius_index = 0
-        for xx in range(x_res):
-            # center
-            x = xx - (x_res/2)
-            for yy in range(y_res):
-                y = yy - (y_res/2)
+    for xx in range(x_res):
+        # center
+        x = xx - (x_res/2)
+        for yy in range(y_res):
+            y = yy - (y_res/2)
+            r_total = np.sqrt(x*x + y*y)
+            
+            # limit values to frame
+            r = min(r_total, y_res/2)
+            # normalize
+            r = r/max_radius
 
-                r,theta = fill_circle(x, y, xx, yy, y_res, 1)
+            # now structure theta values
+            theta = 0
+            if r_total < y_res/2:
+                if x == 0:
+                    theta = math.pi/2.0
+                else:
+                    theta = np.arctan(y*1.0/x)
 
-                x_mat[yy,xx] = r 
-                y_mat[yy,xx] = theta 
-        return {"x_mat": x_mat, "y_mat": y_mat}
+                if x<0:
+                    theta = theta + math.pi
 
-    elif structure == StructureType.CirclesFree:
-        r_rep = 3
-        r_len = int(y_res/(2*r_rep))
-        x_range = np.linspace(-1*scaling, scaling, num = x_res)
-        y_range = np.linspace(-1*scaling, scaling, num = y_res)
-
- 
-        y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-
-        # x = r × cos( θ )
-        # y = r × sin( θ )
-        for xx in range(x_res):
-            # center
-            x = xx - (x_res/2)
-            for yy in range(y_res):
-                y = yy - (y_res/2)
-                r_total = np.sqrt(x*x + y*y)
-                
-                # limit values to frame
-                r = min(r_total, y_res/2)
-                # it repeats every r_len
-                r = r % r_len
-                # normalize
-                r = r/r_len
-
-                # now structure theta values
+             # keep some white space
+            if (r>0.9) or (r<0.1):
+                r = -1
                 theta = 0
-                if r_total < y_res/2:
-                    if x == 0:
-                        theta = math.pi/2.0
-                    else:
-                        theta = np.arctan(y*1.0/x)
+            else :
+                #final normalization
+                r = r/0.8
 
-                    if x<0:
-                        theta = theta + math.pi
+            x_mat[yy,xx] = r 
+            y_mat[yy,xx] = theta 
 
-                    r_index = int(r_total/r_len)
-                    if r_index%2 == 1:
-                        # rotate
-                        theta = (theta + math.pi/4.0) 
-
-                x_mat[yy,xx] = r 
-                y_mat[yy,xx] = theta 
-
-        return {"x_mat": x_mat, "y_mat": y_mat}
-
-    elif structure == StructureType.Free:
-        x_range = np.linspace(-1*scaling, scaling, num = x_res)
-        y_range = np.linspace(-1*scaling, scaling, num = y_res)
-
-
-        y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-
-        return {"x_mat": x_mat, "y_mat": y_mat}
-
-
-    return {"input_0": x_mat, "input_1": y_mat, "input_2": r_mat} #, s_mat
+    return {"x_mat": x_mat, "y_mat": y_mat}
 
 
 def get_fidelity(input_image_path, prediction_image_path):
@@ -258,7 +196,6 @@ def get_fidelity(input_image_path, prediction_image_path):
 # bg = background, 1 for white 0 for black
 def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1, gradient = 1):
    
-    # why twice???
     out_names = ["r0","g0","b0","r1","g1","b1"]
     leaf_names = ["x","y"]
     x_dat = inputs["x_mat"]
@@ -310,9 +247,6 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         node_func = net_nodes[0]
         pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
-        # print(pixels_np.shape)
-        #image_array = np.zeros(((w,h,c_dim))) # (warning 1) c_dim here should be 3 if using a color prednet model as black and white...
-        # pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
         pixels_np = np.reshape(pixels_np, (h, w)) 
         # same
         image_array = pixels_np
@@ -326,7 +260,6 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
 
         img_data = np.array(image_array*255.0, dtype=np.uint8)
         image =  Image.fromarray(img_data , 'L')
-        #Image.fromarray(np.reshape(img_data,(h,w,3))) 
 
     return image
 
@@ -347,7 +280,7 @@ def full_rotation(image, angle, output_dir, index=0):
     rotated_images_list[0] = image_name 
 
     for i in range(1,rotations):
-        rotated_image = image.rotate(-angle*i, expand=True)
+        rotated_image = image.rotate(-angle*i, expand=False, fillcolor=(255,255,255))
         image_name = output_dir + "/" + str(index+i).zfill(3) + ".png"
         rotated_image.save(image_name)
         rotated_images_list[i] = image_name
@@ -382,7 +315,10 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
     images_list = [None]*total_count
 
     index = 0
-    image_inputs = create_grid(structure, w, h, 10)
+    # todo
+    # todo: the  images are  off-center
+    # todo: radial patterns
+    image_inputs = create_grid(structure, w, h, 10) # x and y inverted
     for genome_id, genome in population:
         # do not use genome_id as it increases with time
         j = 0
