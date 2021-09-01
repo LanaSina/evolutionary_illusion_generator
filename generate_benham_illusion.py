@@ -343,12 +343,12 @@ def full_rotation(image, angle, output_dir, index=0):
     rotations = int(360/angle)
     rotated_images_list = [None]*rotations
 
-    image_name = output_dir + "/" + str(index).zfill(10) + ".png"
+    image_name = output_dir + "/" + str(index).zfill(3) + ".png"
     rotated_images_list[0] = image_name 
 
     for i in range(1,rotations):
         rotated_image = image.rotate(-angle*i, expand=True)
-        image_name = output_dir + "/" + str(index+i).zfill(10) + ".png"
+        image_name = output_dir + "/" + str(index+i).zfill(3) + ".png"
         rotated_image.save(image_name)
         rotated_images_list[i] = image_name
 
@@ -381,32 +381,33 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
     rotations = int(360/angle)
     images_list = [None]*total_count
 
-    i = 0
     index = 0
     image_inputs = create_grid(structure, w, h, 10)
     for genome_id, genome in population:
+        # do not use genome_id as it increases with time
         j = 0
         image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, bg = 1, gradient=gradient)
         # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
-        # save  image
-        image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
+        # save image
+        pattern_folder = output_dir + "images/" + str(j).zfill(3)  + "/"
+        # create folder
+        if not os.path.exists(pattern_folder):
+            os.makedirs(pattern_folder)
+
+
+        image_name = pattern_folder + str(0).zfill(3) + ".png"
         image_whitebg.save(image_name, "PNG")
         image = np.asarray(Image.open(image_name))
-
-        
-
         # save rotated images and get file names
-        rotated_images_list = full_rotation(image_whitebg, angle, output_dir + "images/", index)
+        rotated_images_list = full_rotation(image_whitebg, angle, pattern_folder, 0)
 
         # repeat rotated names as necessary
         repeated_list = get_repeat_rotation_list(rotated_images_list, repeat)
         images_list[index:index+repeat] = repeated_list
 
         index += repeat
-
         j = j+1
-    i = i + 1
 
     return images_list, image_inputs
 
