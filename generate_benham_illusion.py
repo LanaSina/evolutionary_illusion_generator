@@ -81,18 +81,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
     return {"x_mat": x_mat, "y_mat": y_mat}
 
 
-def get_fidelity(input_image_path, prediction_image_path):
-    input_image = np.array(Image.open(input_image_path).convert('RGB'))
-    prediction = np.array(Image.open(prediction_image_path).convert('RGB'))
-
-    err = np.sum((input_image.astype("float") - prediction.astype("float")) ** 2)
-    err /= (float(input_image.shape[0] * input_image.shape[1])*255*255)
-    
-    # return the MSE, the lower the error, the more "similar"
-    # the two images are
-    return 1-err
-
-
 # bg = background, 1 for white 0 for black
 def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1, gradient = 1):
    
@@ -251,6 +239,73 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
     return images_list, image_inputs
 
 
+def get_mean_radius_value(image_array):
+    #probably make masks and average that
+
+
+def radius_color_difference(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
+    repeat, c_dim, total_count):
+
+    prediction_dir = output_dir + "/prediction/"
+    if not os.path.exists(prediction_dir):
+        os.makedirs(prediction_dir)
+
+    print("Predicting illusions...")
+    # what?
+    skip = 1
+    # how many frames to predict
+    extension_duration = 2 #2
+    # runs repeat x times on the input image, save in result folder
+    test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
+                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
+                extension_start = repeat, extension_duration = extension_duration,
+                reset_at = repeat+extension_duration, verbose = 0, c_dim = c_dim
+                )
+
+    # calculate color differences
+    print("Calculating color differences...")
+    
+    # images to compare
+    # for input_image in images_list:
+    #     # todo: this is not the same anlge! 
+    #     original_image = np.asarray(Image.open(input_image)) warning see up
+    #     index_0 = int(i*(repeat/skip)+ repeat-1)
+    #     index_1 = index_0+extension_duration-1
+    #     predicted_image_path = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+    #     predicted_image = np.asarray(Image.open(predicted_image_path))
+
+    #     # compare by radius
+    #     diff = get_mean_radius_value(original_image-predicted_image)
+
+
+    #     index_0 = int(i*(repeat/skip)+ repeat-1)
+    #     index_1 = index_0+extension_duration-1
+    #     prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
+    #     prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+
+    #     save_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
+
+
+
+
+    # original_vectors = [None] * total_count
+    # for input_image in images_list:
+    #     index_0 = int(i*(repeat/skip)+ repeat-1)
+    #     index_1 = index_0+extension_duration-1
+    #     prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
+    #     prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+
+    #     save_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
+    #     results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
+    #     if results["vectors"]:
+    #         original_vectors[i] = np.asarray(results["vectors"])
+    #     else:
+    #         original_vectors[i] = [[0,0,-1000,0]]
+    #     i = i + 1
+
+    # return original_vectors
+
+
 def calculate_scores(population_size, structure, original_vectors, s_step=2):
     pertype_count = int((2/s_step))
 
@@ -395,7 +450,11 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         output_dir, pertype_count, total_count, s_step)
 
     # calculate fitnesses using Prednet
-    # 1 get absolute color differences
+    # 1 get absolute color differences per radius
+    radius_color_difference(images_list, size, output_dir, c_dim)
+    color_diff = radius_color_difference(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
+        repeat, c_dim, total_count)
+
     # 2 get divergence from "black/grey/white" ie inter-rgb-difference magnitude
     
     # using mean
@@ -433,20 +492,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     # image_blackbg.save(image_name, "PNG")
     
 
-
-def get_random_pixels(w, h, c_dim):
-    img_data = np.random.rand(w,h,c_dim) 
-    img_data = np.round(img_data*255.0)
-    
-    return img_data
-
-def fix_values(pixel):
-    for i in range(pixel.shape[0]):
-        if(pixel[i]<0):
-            pixel[i] = -pixel[i]
-        elif pixel[i]>255:
-            pixel[i] = 255*2 - pixel[i]
-
 def mutate_genome(genome):
     n = max(0, genome["number_mutation"] + round(random()))
     r =  max(0, genome["range_mutation"] + round(random()))
@@ -455,228 +500,6 @@ def mutate_genome(genome):
     mutated_genome = {"number_mutation": n, "range_mutation": r, "radius": rad}
     return mutated_genome
 
-def mutate_pixels(input_image, c_dim, genome):
-    mutated = np.copy(input_image).reshape((input_image.shape[0],input_image.shape[1],c_dim))
-
-    #mutate genome first
-    mutated_genome = mutate_genome(genome)
-    number_mutation = mutated_genome["number_mutation"]
-    range_mutation = mutated_genome["range_mutation"]
-    radius = mutated_genome["radius"]
-
-    #print(n)
-    #generate a number of random starting points
-    points = np.random.rand(number_mutation,2)
-
-    points[:,0] = points[:,0]*(mutated.shape[0])
-    points[:,1] = points[:,1]*(mutated.shape[1])
-    points = points.astype(int)
-
-    
-    for c in range(number_mutation):
-        x = points[c,0]-radius
-        y = points[c,1]-radius
-        x_stop = x + radius
-        y_stop = y + radius
-
-        if(x<0):
-            x=0
-        if(y<0):
-            y=0
-
-        if(x_stop>mutated.shape[0]):
-            x_stop = mutated.shape[0]
-        if(y_stop>mutated.shape[1]):
-            y_stop = mutated.shape[1]
-
-        old_pixels = mutated[x:x_stop,y:y_stop,:]
-        
-        if c_dim == 3:
-            mutation = range_mutation - np.random.rand(3)*range_mutation*2
-        else:
-            mutation = range_mutation - np.random.rand(1)*range_mutation*2
-
-        new_pixels = old_pixels + mutation
-
-        for ix in range(x_stop-x):
-            for iy in range(y_stop-y):
-                fix_values(new_pixels[ix,iy,:])
-
-        mutated[x:x_stop,y:y_stop,:] = new_pixels
-
-    if c_dim == 3:
-        image =  Image.fromarray(np.array(mutated,dtype=np.uint8))
-    else:
-        mutated = mutated.reshape((mutated.shape[0],mutated.shape[1]))
-        image =  Image.fromarray(np.array(mutated,dtype=np.uint8), 'L')
-
-    return image, mutated_genome
-    
-
-def pixel_evolution(population_size, output_dir, model_name, channels, c_dim, structure, start_image, gpu=0):
-    output_dir = "temp/" 
-    repeat = 20
-    half_h = int(h/2)
-    size = [w,h]
-    mutation_rate = 0.15
-    best_dir = output_dir
-    skip = 1
-    half_population = int(population_size/2)
-
-    radius = 10
-    n = 50 #int(np.round(w*h/(radius*2*radius*2)))
-    winning_genome = {"number_mutation": n, "range_mutation": 50, "radius": radius}
-
-    if not os.path.exists(output_dir + "images/"):
-        os.makedirs(output_dir + "images/")
-
-    repeated_images_list = [None]* (repeat)
-    images_list = [None]*(population_size)
-    mutated_genomes = [None]*population_size
-
-    
-    best_score = 0
-    best_best_score = 0
-    best_illusion = 0
-    best_coverage = 0
-    best_best_coverage = 0
-
-    if start_image!="":
-        #best_image_pixels = Image.open(start_image).convert('RGB')
-        if c_dim==3:
-            image = Image.open(start_image).convert('RGB')
-        else:
-             image = Image.open(start_image).convert('L')
-        best_image_pixels = np.array(image)
-        save_to_name = best_dir + "/best.png"
-        shutil.copy(start_image, save_to_name)
-    else:
-        img_data = np.ones((h,w,c_dim)) 
-        best_image_pixels = np.round(img_data*255.0)
-        if c_dim == 3:
-            image = Image.fromarray(np.array(best_image_pixels,dtype=np.uint8))
-        else:
-            best_image_pixels_temp = best_image_pixels.reshape((h,w))
-            image = Image.fromarray(np.array(best_image_pixels_temp,dtype=np.uint8), 'L')
-        save_to_name = best_dir + "/best.png"
-        image.save(save_to_name, "PNG")
-
-    generation = 0
-    species_genomes_0 = winning_genome
-    species_genomes_1 = winning_genome
-    secondary_image = best_image_pixels
-    while True:
-        print("generation", generation)
-        generation = generation+1
-        
-        for i in range(population_size):
-            if(i==0) and (generation==1):
-                image_modified = image
-            else:
-                # divide all images into 2 species?
-                if(i<half_population):
-                    # image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, winning_genome)
-                    image_modified, mutated_genomes[i] = mutate_pixels(best_image_pixels, c_dim, species_genomes_0)
-                    # dont' mutate the genome yet
-                    mutated_genomes[i] = species_genomes_0
-                else:
-                    image_modified, mutated_genomes[i] = mutate_pixels(secondary_image, c_dim, species_genomes_1)
-                    # dont' mutate the genome yet
-                    mutated_genomes[i] = species_genomes_1
-
-            # save  image
-            image_name = output_dir + "images/" + str(i).zfill(10) + ".png"
-            image_modified.save(image_name, "PNG")
-            # image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
-            # image_blackbg.save(image_name, "PNG")
-
-            image = np.asarray(Image.open(image_name))
-
-            images_list[i] = image_name
-            repeated_images_list[i*repeat:(i+1)*repeat] = [image_name]*repeat
-
-        original_vectors = get_flows(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
-        repeat, c_dim, population_size)
-
-        #scores = calculate_scores(population_size, structure, original_vectors)
-
-        scores_direction, scores_strength, scores_number = detailed_scores(population_size, structure, original_vectors)
-
-        # calculate failure coverage
-        score_d0 = np.var(scores_direction[0:half_population])
-        score_d1 = np.var(scores_direction[half_population:population_size])
-        score_s0 = np.var(scores_strength[0:half_population])
-        score_s1 = np.var(scores_strength[half_population:population_size])
-        score_n0 = np.var(scores_number[0:half_population])
-        score_n1 = np.var(scores_number[half_population:population_size])
-
-        score_0 = score_d0+score_s0+score_n0
-        score_1 = score_d1+score_s1+score_n1
-        print("scores_direction", scores_direction)
-        print("scores_strength", scores_strength)
-        print("scores_number", scores_number)
-        print("failure coverage", score_0, score_1)
-
-        # take highest variance
-        best_coverage = score_1
-        if score_0 >= score_1:
-            pstart = 0
-            best_coverage = score_0;
-        else:
-            pstart = half_population
-
-        best_score = 0
-        best_genome = winning_genome
-        for i in range(pstart, pstart+half_population):
-            score = scores_direction[i] + scores_strength[i]
-            if (score >= best_score):
-                best_illusion = i
-                best_score = score 
-
-                #best_genome = mutated_genomes[i]
-                # prevent overrite that seems to happen
-
-        
-        move_to_name = "temp.png"
-        shutil.copy(images_list[best_illusion], move_to_name)
-        print("moved", images_list[best_illusion], "temp.png")
-        move_to_name = "temp_f.png"
-        image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
-        shutil.copy(image_name, move_to_name)
-
-        print("best_illusion", best_illusion, "best_score", best_score , "best_best_score", best_best_score)
-        print("best_best_coverage", best_best_coverage)
-
-        #if(best_score>=best_best_score):
-        if best_coverage >= best_best_coverage and best_illusion>=half_population:
-
-            print("new best coverage")
-            print("******changing best illusion")
-            best_best_score = best_score
-            winning_genome = best_genome
-            best_best_coverage = best_coverage
-
-            # save best illusion
-            image_name = "temp.png"
-            print("best", image_name, best_illusion)
-            move_to_name = best_dir + "/best.png"
-
-            Image.open(image_name).save(move_to_name)
-            print("moved", image_name, move_to_name)
-
-            image_name = "temp_f.png"
-            move_to_name = best_dir + "/best_flow.png"
-            # shutil.copy(image_name, move_to_name)
-            Image.open(image_name).save(move_to_name)
-            print("moved", image_name, move_to_name)
-            #files.download(move_to_name)
-
-            best_image_pixels = secondary_image
-
-        secondary_image = np.asarray(Image.open(images_list[best_illusion]))
-
-        print("best score", best_best_score)
-        print("winning_genome", winning_genome)
 
 def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1, gpu = 0):
     repeat = 6
