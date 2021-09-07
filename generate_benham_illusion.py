@@ -202,6 +202,7 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
 
     #rotate image by 90 degrees
     angle = 90
+    # rotation to 360
     rotations = int(360/angle)
     images_list = [None]*total_count
 
@@ -239,24 +240,47 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
     return images_list, image_inputs
 
 
-def get_mean_radius_value(image_array):
-    #probably make masks and average that
+# score
+def get_mean_radius_score(image_array, size):
+    # width of disk slice to examine
+    wd = 2 #px
+    # get this properly
+    max_radius = (h/2) - 5
+    n_slices = (int) (max_radius/wd + 0.5)
+    #
+    store = np.zeros((n_slices,3))
+    counts = np.zeros((n_slices))
 
+    for i in range(size[0]):
+        for j in range(size[1]):
+            x = size[0]/2 - i
+            y = size[1]/2 - j
+            r = np.sqrt(x*x+y*y)
+            if r<=max_radius:
+                index = int(r/wd)
+                store[index] += image_array[j,i]
+                counts[index] += 1
 
-def radius_color_difference(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
-    repeat, c_dim, total_count):
+    # sad to just mush everything together here
+    score = sum(store)/sum(counts)
+
+    return sum(score)
+
+def radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
+    repeat, c_dim):
 
     prediction_dir = output_dir + "/prediction/"
     if not os.path.exists(prediction_dir):
         os.makedirs(prediction_dir)
 
+    print("repeat is ", repeat) #20
     print("Predicting illusions...")
     # what?
     skip = 1
     # how many frames to predict
-    extension_duration = 2 #2
+    extension_duration = 1 #2
     # runs repeat x times on the input image, save in result folder
-    test_prednet(initmodel = model_name, sequence_list = [repeated_images_list], size=size, 
+    test_prednet(initmodel = model_name, sequence_list = [images_list], size=size, 
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
                 extension_start = repeat, extension_duration = extension_duration,
                 reset_at = repeat+extension_duration, verbose = 0, c_dim = c_dim
@@ -264,46 +288,25 @@ def radius_color_difference(images_list, model_name, repeated_images_list, size,
 
     # calculate color differences
     print("Calculating color differences...")
-    
+    scores = [None]*population_size
+
     # images to compare
-    # for input_image in images_list:
-    #     # todo: this is not the same anlge! 
-    #     original_image = np.asarray(Image.open(input_image)) warning see up
-    #     index_0 = int(i*(repeat/skip)+ repeat-1)
-    #     index_1 = index_0+extension_duration-1
-    #     predicted_image_path = prediction_dir + str(index_1).zfill(10) + "_extended.png"
-    #     predicted_image = np.asarray(Image.open(predicted_image_path))
+    # index of image at same rotation angle (sadly the prediction does not rotate!)
+    for i in range(population_size):
+        input_image = images_list[(i+1)*repeat-1]
+        # open bw image as rgb
+        original_image = np.asarray(Image.open(input_image).convert('RGB'))
+        p_index = (i+1)*repeat
+        predicted_image_path = prediction_dir + str(p_index).zfill(10) + "_extended.png"
+        predicted_image = np.asarray(Image.open(predicted_image_path))
 
-    #     # compare by radius
-    #     diff = get_mean_radius_value(original_image-predicted_image)
+        # convert bw image to rgb
 
+        # compare by radius
+        diff = get_mean_radius_score(original_image-predicted_image, size)
+        scores[i] = diff
 
-    #     index_0 = int(i*(repeat/skip)+ repeat-1)
-    #     index_1 = index_0+extension_duration-1
-    #     prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
-    #     prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
-
-    #     save_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
-
-
-
-
-    # original_vectors = [None] * total_count
-    # for input_image in images_list:
-    #     index_0 = int(i*(repeat/skip)+ repeat-1)
-    #     index_1 = index_0+extension_duration-1
-    #     prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
-    #     prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
-
-    #     save_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
-    #     results = lucas_kanade(prediction_0, prediction_1, output_dir+"/flow/", save=True, verbose = 0, save_name = save_name)
-    #     if results["vectors"]:
-    #         original_vectors[i] = np.asarray(results["vectors"])
-    #     else:
-    #         original_vectors[i] = [[0,0,-1000,0]]
-    #     i = i + 1
-
-    # return original_vectors
+    return scores
 
 
 def calculate_scores(population_size, structure, original_vectors, s_step=2):
@@ -433,6 +436,7 @@ def detailed_scores(population_size, structure, original_vectors):
 def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
     id=0, c_dim=3, best_dir = ".", gradient = 1, gpu = 0):
 
+    population_size = len(population)
     print("Calculating fitnesses of populations: ", len(population))
     output_dir = "temp/" 
     repeat = 20
@@ -451,30 +455,21 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
     # calculate fitnesses using Prednet
     # 1 get absolute color differences per radius
-    radius_color_difference(images_list, size, output_dir, c_dim)
-    color_diff = radius_color_difference(images_list, model_name, repeated_images_list, size, channels, gpu, output_dir,
-        repeat, c_dim, total_count)
-
-    # 2 get divergence from "black/grey/white" ie inter-rgb-difference magnitude
-    
-    # using mean
-    #original_vectors = get_flows_mean(images_list, size, output_dir, c_dim)
-
-#! todo  
-    # calculate how much the colors diverge
-    #scores = calculate_scores(len(population), structure, original_vectors, s_step)
+    #radius_color_difference(images_list, size, output_dir, c_dim)
+    color_diff = radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
+        repeat, c_dim)
 
     i = 0
     best_score = 0
     best_illusion = 0
     best_genome = None
     for genome_id, genome in population:
-        genome.fitness = 0.01 #scores[i][1]
-        # if (scores[i][1]> best_score):
-        #     best_illusion = i
-        #     best_score = scores[i][1]
-        #     best_genome = genome
-        # i = i+1
+        genome.fitness = scores[i]
+        if (scores[i] > best_score):
+            best_illusion = i
+            best_score = scores[i]
+            best_genome = genome
+        i = i+1
 
     # # save best illusion
     # image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
