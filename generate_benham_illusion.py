@@ -456,7 +456,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     # calculate fitnesses using Prednet
     # 1 get absolute color differences per radius
     #radius_color_difference(images_list, size, output_dir, c_dim)
-    color_diff = radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
+    scores = color_diff = radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
         repeat, c_dim)
 
     i = 0
