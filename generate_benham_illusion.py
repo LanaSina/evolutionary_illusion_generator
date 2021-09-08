@@ -211,9 +211,9 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
     # todo: the  images are  off-center
     # todo: radial patterns
     image_inputs = create_grid(structure, w, h, 10) # x and y inverted
+    # do not use genome_id as it increases with time
+    j = 0
     for genome_id, genome in population:
-        # do not use genome_id as it increases with time
-        j = 0
         image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, bg = 1, gradient=gradient)
         # image_blackbg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, 10, config, s_val = s_val, bg = 0)
 
@@ -272,6 +272,9 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
     prediction_dir = output_dir + "/prediction/"
     if not os.path.exists(prediction_dir):
         os.makedirs(prediction_dir)
+    dif_dir = output_dir + "/diff/"
+    if not os.path.exists(dif_dir):
+        os.makedirs(dif_dir)
 
     print("repeat is ", repeat) #20
     print("Predicting illusions...")
@@ -281,7 +284,7 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
     extension_duration = 1 #2
     # runs repeat x times on the input image, save in result folder
     test_prednet(initmodel = model_name, sequence_list = [images_list], size=size, 
-                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
+                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip, 
                 extension_start = repeat, extension_duration = extension_duration,
                 reset_at = repeat+extension_duration, verbose = 0, c_dim = c_dim
                 )
@@ -293,144 +296,24 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
     # images to compare
     # index of image at same rotation angle (sadly the prediction does not rotate!)
     for i in range(population_size):
-        input_image = images_list[(i+1)*repeat-1]
+        o_index = (i+1)*repeat-1
+        input_image = images_list[o_index]
         # open bw image as rgb
         original_image = np.asarray(Image.open(input_image).convert('RGB'))
         p_index = (i+1)*repeat
         predicted_image_path = prediction_dir + str(p_index).zfill(10) + "_extended.png"
         predicted_image = np.asarray(Image.open(predicted_image_path))
 
-        # convert bw image to rgb
-
         # compare by radius
+        array_diff = original_image-predicted_image
+        image_diff = Image.fromarray(np.abs(array_diff))
+        image_diff_path = dif_dir + "/" + str(i).zfill(3) + ".png"
+        image_diff.save(image_diff_path)
         diff = get_mean_radius_score(original_image-predicted_image, size)
         scores[i] = diff
 
     return scores
 
-
-def calculate_scores(population_size, structure, original_vectors, s_step=2):
-    pertype_count = int((2/s_step))
-
-    scores = [None] * population_size
-    for i in range(0, population_size):
-        final_score = -100
-        temp_index = -1
-        mean_score = 0
-        # traverse latent space
-        for j in range(0,int(2/s_step)):
-            index = i*pertype_count+j
-            score = 0
-            score_d = 0
-
-            if structure == StructureType.Bands:
-                ratio = plausibility_ratio(original_vectors[index], 0.15) 
-                score_0 = ratio[0]
-                good_vectors = ratio[1]
-
-                if(len(good_vectors)>0): 
-                    y = 0                
-                    count = 0
-                    stripes = 4
-                    step = h/stripes
-                    score_direction = 0
-                    discord = 0
-                    orientation = 0
-
-                    score_direction = horizontal_symmetry_score(good_vectors, [0, step*2])
-                    
-                    # bonus for strength
-                    #score_strength = strength_number(good_vectors)
-                    score_d = score_direction#*min(1,score_strength)
-
-            elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strength = 0.3 # 0.4
-                ratio = plausibility_ratio(original_vectors[index], max_strength) 
-                score_0 = ratio[0]
-                good_vectors = ratio[1]
-                min_vectors = ((2*math.pi) / (math.pi/4.0))*3
-                #print("min_vectors", min_vectors, len(good_vectors))
-
-                if(len(good_vectors)>min_vectors): 
-                    # get tangent scores
-                    score_direction = 0
-                    limits = [0, h/2]
-                    # temp = h/(2*3)
-                    # limits = [temp*2, temp*3]
-                    score_direction = rotation_symmetry_score(good_vectors, w, h, limits)
-                    score_strength = strength_number(good_vectors,max_strength)
-                    score_number = min(1, len(good_vectors)/(160*120/100))
-                    score_d = 0.*score_direction + 0.3*score_strength #+ 0.3*score_number
-                    # print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
-
-            elif structure == StructureType.Free:
-                max_strength = 0.4
-                ratio = plausibility_ratio(original_vectors[index], max_strength) 
-                good_vectors = ratio[1]
-
-                if(len(good_vectors)>0): 
-                    score_strength = strength_number(good_vectors,max_strength)
-                    score_number = min(len(good_vectors),15)/15
-                    score_s = swarm_score(good_vectors, w, h)
-                    # print("swarm_score", score_s)
-                    score_d = 0.5*score_s + 0.1*score_strength + 0.4*score_number
-            else:
-                score_d = inside_outside_score(good_vectors, w, h)
-            
-            
-            score = score + score_d
-
-            if score>final_score:
-                final_score = score
-                temp_index = index
-        
-        m =  score/pertype_count
-        scores[i] =[i, m]
-
-    print("scores",scores)
-
-    return scores
-
-
-def detailed_scores(population_size, structure, original_vectors):
-    scores_direction = [None] * population_size
-    scores_strength = [None] * population_size
-    scores_number = [None] * population_size
-
-    for i in range(0, population_size):
-        final_score = -100
-        temp_index = -1
-        mean_score = 0
-        # traverse latent space
-        index = i
-        score = 0
-        score_d = 0
-
-        if structure == StructureType.Circles or structure == StructureType.CirclesFree :
-            max_strength = 0.4 # 0.4
-            ratio = plausibility_ratio(original_vectors[index], max_strength) 
-            score_0 = ratio[0]
-            good_vectors = ratio[1]
-            #min_vectors = ((2*math.pi) / (math.pi/4.0))*3
-            #print("min_vectors", min_vectors, len(good_vectors))
-
-            if(len(good_vectors)>0): 
-                # get tangent scores
-                score_direction = 0
-                limits = [0, h/2]
-                # temp = h/(2*3)
-                # limits = [temp*2, temp*3]
-                scores_direction[i] = rotation_symmetry_score(good_vectors, w, h, limits)
-                scores_strength[i] = strength_number(good_vectors,max_strength)
-                scores_number[i] = min(1, len(good_vectors)/(160*120/400))
-                #score_d = 0.*score_direction + 0.3*score_strength #+ 0.3*score_number
-                # print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
-            else:
-                scores_direction[i] = 0
-                scores_strength[i] = 0
-                scores_number[i] = 0
-
-    return scores_direction, scores_strength, scores_number
 
 # population:  [id, net]
 def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
@@ -455,9 +338,10 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
     # calculate fitnesses using Prednet
     # 1 get absolute color differences per radius
-    #radius_color_difference(images_list, size, output_dir, c_dim)
     scores = color_diff = radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
         repeat, c_dim)
+
+    print("scores", scores)
 
     i = 0
     best_score = 0
@@ -471,15 +355,16 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             best_genome = genome
         i = i+1
 
-    # # save best illusion
-    # image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
-    # print("best", image_name, best_illusion)
-    # move_to_name = best_dir + "/best.png"
-    # shutil.copy(image_name, move_to_name)
-    # index = int(best_illusion*(repeat/skip) + repeat-1)
-    # image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
-    # move_to_name = best_dir + "/best_flow.png"
-    # shutil.copy(image_name, move_to_name)
+    # save best illusion
+    image_name = output_dir + "/images/" + str(best_illusion).zfill(3) + "/000.png"
+    print("best", image_name, best_illusion)
+    move_to_name = best_dir + "/best.png"
+    shutil.copy(image_name, move_to_name)
+    index = int((best_illusion+1)*repeat)
+    image_name = output_dir + "/prediction/" + str(index).zfill(10) + "_extended.png"
+    move_to_name = best_dir + "/best_prediction.png"
+    shutil.copy(image_name, move_to_name)
+    # difference
 
     # image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
     #     s_val = -1, bg = 0, gradient=gradient)
@@ -545,7 +430,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', '-m', default='', help='.model file')
     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
     parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
-    parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
+    parser.add_argument('--config', '-cfg', default="./illusion_evolver/neat_configs/", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
     parser.add_argument('--size', '-wh', help='big or small', default="small")
     parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default=3, type=int)
@@ -570,23 +455,12 @@ if __name__ == "__main__":
         h = 480
 
     config = args.config
-
-    if config == "":
-        config = os.path.dirname(__file__)
-        print(config)
-        if args.structure == StructureType.Bands:
-            config += "/neat_configs/bands.txt"
-        elif args.structure == StructureType.Circles or args.structure == StructureType.CirclesFree:
-            config += "/neat_configs/circles.txt"
-        elif args.structure == StructureType.Free:
-            config += "/neat_configs/free.txt"
-        else :
-            config += "/neat_configs/default.txt"
+    config += "benham.txt"
         
     print("config", config)
     print("gradient", args.gradient)
 
-    gpu = -1
+    gpu = 0
 
     if(args.pixels<0):
         neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
