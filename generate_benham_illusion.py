@@ -261,10 +261,19 @@ def get_mean_radius_score(image_array, size):
                 store[index] += image_array[j,i]
                 counts[index] += 1
 
-    # sad to just mush everything together here
-    score = sum(store)/sum(counts)
+    #print(store)
+    # take the mean difference for each radius
+    mean_r = [None]*n_slices
+    for index in range(n_slices):
+        mean_r[index] = sum(store[index])/(counts[index]*3*255)
 
-    return sum(score)
+    # sad to just mush everything together here
+    # score = sum(store)/sum(counts)
+
+    # finally take the mean for all radii
+    score = sum(mean_r)/n_slices
+
+    return score
 
 def radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
     repeat, c_dim):
@@ -292,6 +301,7 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
     # calculate color differences
     print("Calculating color differences...")
     scores = [None]*population_size
+
 
     # images to compare
     # index of image at same rotation angle (sadly the prediction does not rotate!)
