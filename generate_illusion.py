@@ -2,7 +2,9 @@ import argparse
 from chainer_prednet.PredNet.call_prednet import test_prednet
 from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 import csv
+import cv2
 from enum import IntEnum
+from google.colab.patches import cv2_imshow
 import math
 import neat
 import numpy as np
@@ -879,6 +881,7 @@ def get_fidelity(input_image_path, prediction_image_path):
 
 
 # bg = background, 1 for white 0 for black
+# returns PIL image
 def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1, gradient = 1):
    
     # why twice???
@@ -948,13 +951,24 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
             image_array = np.round(image_array)
 
         img_data = np.array(image_array*255.0, dtype=np.uint8)
-        image =  Image.fromarray(img_data , 'L')
+        image = Image.fromarray(img_data , 'L')
         #Image.fromarray(np.reshape(img_data,(h,w,3))) 
 
     return image
 
+
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
+
+
+def pil_to_cv2(image, c_dim):
+    image_np = np.asarray(image)
+    if c_dim == 3:
+        open_cv_image = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+    else:
+        open_cv_image = cv2.cvtColor(image_np, cv2.COLOR_GRAY2BGR)
+
+    return open_cv_image
 
 # population:  [id, net]
 def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
@@ -997,8 +1011,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             image_whitebg.save(image_name, "PNG")
             # image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
             # image_blackbg.save(image_name, "PNG")
-
-            image = np.asarray(Image.open(image_name))
 
             images_list[index] = image_name
             repeated_images_list[index*repeat:(index+1)*repeat] = [image_name]*repeat
@@ -1065,8 +1077,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                     #score_strength = strength_number(good_vectors)
                     score_d = score_direction#*min(1,score_strength)
 
-            elif structure == StructureType.Circles or structure == StructureType.CirclesFree :
-                max_strength = 0.4 # 0.4
+            elif structure == StructureType.Circles or structure == StructureType.CirclesFree:
+                max_strength = 0.3 # 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
@@ -1082,7 +1094,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                     score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
                     score_strength = strength_number(good_vectors,max_strength)
                     score_d = 0.7*score_direction + 0.3*score_strength
-                    print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
+                    # print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
 
             elif structure == StructureType.Free:
                 max_strength = 0.4
@@ -1105,8 +1117,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                 final_score = score
                 temp_index = index
         
-        m =  score/pertype_count
-        scores[i] =[i, m]
+        m = score/pertype_count
+        scores[i] = [i, m]
 
     print("scores",scores)
     i = 0
@@ -1133,6 +1145,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
+    # show in colab
+    cv2_imshow(cv2.imread(move_to_name))
 
     image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, 10, config,
         s_val = s_val, bg = 0, gradient=gradient)
@@ -1144,10 +1158,11 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     e_h = 800
     e_grid = enhanced_image_grid(e_w, e_h, structure)
     image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, 10, config,
-        s_val = -1, bg = 0, gradient=gradient)
-
+        s_val = -1, bg = 1, gradient=gradient)
     image_name = best_dir + "/enhanced.png"
     image.save(image_name)
+    # show in colab
+    cv2_imshow(cv2.imread(image_name))
 
 
 def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim =3, checkpoint = None, gradient=1):
