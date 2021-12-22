@@ -845,8 +845,6 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
     y_dat = inputs["y_mat"]
     inp_x = torch.tensor(x_dat.flatten())
     inp_y = torch.tensor(y_dat.flatten())
-   
-    #or h w ??
 
     if(c_dim>1):
         image_array = np.zeros(((h,w,c_dim)))
@@ -859,7 +857,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         )
 
         for node_func in net_nodes:
-            if( c>=3 ):
+            if(c >= 3):
                 break
 
             # an array with values between 0 and 1
@@ -877,7 +875,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
             image_array = np.round(image_array)
 
         img_data = np.array(image_array*255.0, dtype=np.uint8)
-        image = Image.fromarray(img_data)#, mode = "HSV")
+        image = Image.fromarray(img_data)
     else:
         net_nodes = create_cppn(
             genome,
@@ -1035,7 +1033,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                     score_direction = horizontal_symmetry_score(good_vectors, [0, step*2])
                     
                     # bonus for strength
-                    #score_strength = strength_number(good_vectors)
                     score_d = score_direction#*min(1,score_strength)
 
             elif structure == StructureType.Circles or structure == StructureType.CirclesFree:
@@ -1044,7 +1041,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
                 min_vectors = ((2*math.pi) / (math.pi/4.0))*3
-                #print("min_vectors", min_vectors, len(good_vectors))
 
                 if(len(good_vectors)>min_vectors): 
                     # get tangent scores
@@ -1197,7 +1193,6 @@ if __name__ == "__main__":
         w = 640
         h = 480
 
-
     config = args.config
 
     if config == "":
@@ -1219,4 +1214,3 @@ if __name__ == "__main__":
     print("gradient", args.gradient)
     neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
         args.color_space, args.checkpoint, args.gradient)
-
