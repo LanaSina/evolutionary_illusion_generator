@@ -26,6 +26,7 @@ class StructureType(IntEnum):
     Circles = 1
     Free = 2
     CirclesFree = 3
+    Circles5Colors
 
 
 # returns ratio and vectors that are not unplausibly big
@@ -145,9 +146,7 @@ def swarm_score(vectors,w, h):
     norms = np.sqrt(norm_vectors[:,2]*norm_vectors[:,2] + norm_vectors[:,3]*norm_vectors[:,3])
     norm_vectors[:,2] = norm_vectors[:,2]/norms
     norm_vectors[:,3] = norm_vectors[:,3]/norms
-    #print("normalized", norm_vectors)
     temp = np.sqrt(norm_vectors[:,2]*norm_vectors[:,2] + norm_vectors[:,3]*norm_vectors[:,3])
-    #print("norms", temp)
     angles = np.arccos(norm_vectors[:,2])
 
     for v_a in norm_vectors:
@@ -160,29 +159,11 @@ def swarm_score(vectors,w, h):
         distance_factors = np.where(distance_factors > 1, 1, distance_factors)
         # 1 where vectors are close
         close = 1 - np.where(distance_factors < 1, 0, distance_factors)
-        # close = 1-distance_factors
-
-        # distance_factors = (np.multiply(x,x) + np.multiply(y,y))
-        # distance_factors = np.where(distance_factors > distance_2*distance_2, distance_2*distance_2, distance_factors)
-        # distance_factors = np.where(distance_factors < max_distance*max_distance, distance_2*distance_2, distance_factors)
-        # far = 1 - (distance_factors/(distance_2*distance_2))
-        # #print("far", far)
 
         # vectors orientation
         # alpha = acos(x)
         v_angle = math.acos(v_a[2])
-        angle_diff = abs(angles-v_angle)
-        angle_diff = angle_diff % 2*math.pi
-        angle_diff = angle_diff/(2*math.pi)
-        # v_agreement = np.multiply(close,abs(1-angle_diff))
-        # v_discord = np.multiply(far,abs(angle_diff))
-
-        # # optimize for a balance of extreme values
-        # s1 = sum(v_agreement)/(2*math.pi*max_distance) 
-        # s2 = sum(v_discord)/(2*math.pi*(distance_2- max_distance))
-        # temp = s1*s2
-
-        # oprimal deviation: completely opposite at 100 px away (distance factor  = 1)
+        # optimal deviation: completely opposite at 100 px away (distance factor  = 1)
         optimal = (v_angle + distance_factors*math.pi)%2*math.pi
         loss = close*abs(angles-optimal)
         temp = math.pi - (sum(loss)/n)
@@ -226,20 +207,6 @@ def rotation_symmetry_score(vectors, w, h, limits = None, original_filename="tem
     rotated_vectors[:,2] = rotated_vectors[:,2]/norms
     rotated_vectors[:,3] = rotated_vectors[:,3]/norms
 
-    # for debugging
-    # output_dir = "temp/normalized/"
-    # if not os.path.exists(output_dir + "csv"):
-    #     os.makedirs(output_dir+"csv")
-    #     print("created", output_dir)
-
-    # image = np.zeros((120, 160, 3))
-    # n_v = np.array([rotated_vectors[:,0] + center[0], rotated_vectors[:,1]+center[1], rotated_vectors[:,2], rotated_vectors[:,3]])
-    # n_v = np.transpose(n_v)
-    # image = draw_tracks(image, n_v, vector_scale=10)
-    # print(original_filename)
-    # save_data(image, n_v, output_dir, original_filename, verbose = 1, save_name="")
-
-
     # rotate vectors clockwise to x axis
     # new_x = cos(a)x + sin(a)y, new_y = cos(a)y - sin(a)x
     # cos(a) = x/dist, sin a = y/dist
@@ -255,19 +222,6 @@ def rotation_symmetry_score(vectors, w, h, limits = None, original_filename="tem
 
     var_x = np.var(r_v[:,0])
     var_y = np.var(r_v[:,1])
-
-    # image = np.zeros((120, 160, 3))
-    # # back to cv2 coordinates
-    # n_v = np.array([distances + center[0], np.zeros((len(distances)))+center[1], rx_1-distances, ry_1])
-    # n_v = np.transpose(n_v)
-
-    # output_dir = "temp/rotated/"
-    # if not os.path.exists(output_dir + "csv"):
-    #     os.makedirs(output_dir+"csv")
-    #     print("created", output_dir)
-
-    # image = draw_tracks(image, n_v, vector_scale=10)
-    # save_data(image, n_v, output_dir, original_filename, verbose = 1, save_name="")
 
     # max var is 1
     score = (1 - var_x)*(1 - var_x) + (1 - var_y)*(1 - var_y)
@@ -696,7 +650,7 @@ def enhanced_image_grid(x_res, y_res, structure):
             for xx in range(x_step):
                 # shift coordinate to center of circle
                 real_x = (col*x_step + xx)
-                x =  real_x - centers[index][0]
+                x = real_x - centers[index][0]
                 for yy in range(y_step):
                     real_y = (row*y_step + yy)
                     y =  real_y - centers[index][1]
@@ -905,9 +859,10 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         )
 
         for node_func in net_nodes:
-            if(c>=3):
+            if( c>=3 ):
                 break
 
+            # an array with values between 0 and 1
             pixels = node_func(x=inp_x, y=inp_y)
             pixels_np = pixels.numpy()
             image_array[:,:, c] = np.reshape(pixels_np, (h,w))
@@ -917,15 +872,13 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
                         image_array[x, y, c] = bg #white or black
             c = c + 1
 
-        # for no shading
-        # img_data = np.array(np.round(image_array)*255.0, dtype=np.uint8)
-        if gradient==0:
+        # for no gradients
+        if gradient == 0:
             image_array = np.round(image_array)
 
         img_data = np.array(image_array*255.0, dtype=np.uint8)
-        image =  Image.fromarray(img_data)#, mode = "HSV")
+        image = Image.fromarray(img_data)#, mode = "HSV")
     else:
-        image_array = np.zeros(((h,w)))
         net_nodes = create_cppn(
             genome,
             config,
@@ -935,11 +888,8 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         node_func = net_nodes[0]
         pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
-        # print(pixels_np.shape)
-        #image_array = np.zeros(((w,h,c_dim))) # (warning 1) c_dim here should be 3 if using a color prednet model as black and white...
-        # pixels_np = np.reshape(pixels_np, (w, h)) * 255.0
         pixels_np = np.reshape(pixels_np, (h, w)) 
-        # print(pixels_np.shape)
+
         # same
         image_array = pixels_np
         for x in range(h):
@@ -948,11 +898,22 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
                     image_array[x,y] = bg
 
         if gradient == 0:
-            image_array = np.round(image_array)
+            # 0 to 4
+            # black, white, r, g, or b=255
+            color_data = np.array(image_array * 5.0, dtype=np.uint8)
+            color_data = np.round(color_data)
+            img_data = np.zeros((h, w, 3))
+            # fill each channel
+            # white
+            img_data[:, :, :] = np.where(color_data == 1, 255, img_data)
+            # rgb
+            img_data[:, :, 0] = np.where(color_data == 2, 255, img_data)
+            img_data[:, :, 1] = np.where(color_data == 3, 255, img_data)
+            img_data[:, :, 2] = np.where(color_data == 4, 255, img_data)
+        else:
+            img_data = np.array(image_array*255.0, dtype=np.uint8)
 
-        img_data = np.array(image_array*255.0, dtype=np.uint8)
-        image = Image.fromarray(img_data , 'L')
-        #Image.fromarray(np.reshape(img_data,(h,w,3))) 
+        image = Image.fromarray(img_data, 'L')
 
     return image
 
@@ -1248,7 +1209,10 @@ if __name__ == "__main__":
             config += "/neat_configs/circles.txt"
         elif args.structure == StructureType.Free:
             config += "/neat_configs/free.txt"
-        else :
+        elif args.structure == StructureType.Circles5Colors:
+            config += "/neat_configs/circles5.txt"
+            arg.gradient = 0
+        else:
             config += "/neat_configs/default.txt"
         
     print("config", config)
