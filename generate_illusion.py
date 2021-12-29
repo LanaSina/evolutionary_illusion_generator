@@ -824,7 +824,8 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
     inp_x = torch.tensor(x_dat.flatten())
     inp_y = torch.tensor(y_dat.flatten())
 
-    if (c_dim > 1):
+    # color images
+    if c_dim > 1:
         image_array = np.zeros(((h, w, c_dim)))
         c = 0
         net_nodes = create_cppn(
@@ -846,12 +847,23 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
                         image_array[x, y, c] = bg  # white or black
             c = c + 1
 
-        # for no gradients
         if gradient == 0:
-            image_array = np.round(image_array)
+            # 0 to 4
+            # black, white, r, g, or b=255
+            color_data = np.array(image_array * 5.0, dtype=np.uint8)
+            color_data = np.round(color_data)
+            img_data = np.zeros((h, w, 3))
+            # fill each channel
+            # white
+            img_data[:, :, :] = np.where(color_data == 1, 255, img_data)
+            # rgb
+            img_data[:, :, 0] = np.where(color_data == 2, 255, img_data)
+            img_data[:, :, 1] = np.where(color_data == 3, 255, img_data)
+            img_data[:, :, 2] = np.where(color_data == 4, 255, img_data)
 
         img_data = np.array(image_array * 255.0, dtype=np.uint8)
         image = Image.fromarray(img_data)
+    # grayscale
     else:
         net_nodes = create_cppn(
             genome,
@@ -870,19 +882,9 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
                 if x_dat[x][y] == -1:
                     image_array[x, y] = bg
 
+        # for no gradients
         if gradient == 0:
-            # 0 to 4
-            # black, white, r, g, or b=255
-            color_data = np.array(image_array * 5.0, dtype=np.uint8)
-            color_data = np.round(color_data)
-            img_data = np.zeros((h, w, 3))
-            # fill each channel
-            # white
-            img_data[:, :, :] = np.where(color_data == 1, 255, img_data)
-            # rgb
-            img_data[:, :, 0] = np.where(color_data == 2, 255, img_data)
-            img_data[:, :, 1] = np.where(color_data == 3, 255, img_data)
-            img_data[:, :, 2] = np.where(color_data == 4, 255, img_data)
+            img_data = np.round(image_array)
         else:
             img_data = np.array(image_array * 255.0, dtype=np.uint8)
 
@@ -1175,7 +1177,10 @@ if __name__ == "__main__":
         if args.structure == StructureType.Bands:
             config += "/neat_configs/bands.txt"
         elif args.structure == StructureType.Circles or args.structure == StructureType.CirclesFree:
-            config += "/neat_configs/circles.txt"
+            if args.color_space > 1:
+                config += "/neat_configs/circles.txt"
+            else:
+                config += "/neat_configs/circles_bw.txt"
         elif args.structure == StructureType.Free:
             config += "/neat_configs/free.txt"
         elif args.structure == StructureType.Circles5Colors:
