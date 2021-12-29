@@ -26,7 +26,7 @@ class StructureType(IntEnum):
     Circles = 1
     Free = 2
     CirclesFree = 3
-    Circles5Colors
+    Circles5Colors = 4
 
 
 # returns ratio and vectors that are not unplausibly big
@@ -698,7 +698,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         a = np.linspace(-1*sc, sc, num = y_len-padding)
         to_tile = np.concatenate((a,np.zeros((padding))))
         y_range = np.tile(to_tile, y_rep)
-       # x_range = np.linspace(-1*scaling, scaling, num = x_res)
 
         x_rep = 10
         x_len = int(x_res/x_rep) 
@@ -714,18 +713,12 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
             # top of previous band
             m_start = max(0,start-padding)
             x_reverse[m_start:start] = np.zeros((start-m_start,1))
-            #y_range[m_start:start] = np.zeros((start-m_start))
 
             # bottom of current band
             stop = min(y_res, start+y_len)
             m_start = max(stop - padding, 0) #max(0,start-padding)
             x_reverse[m_start:stop] = np.zeros((stop-m_start,1))
-            #y_range[m_start:stop] = np.zeros((stop-m_start))
             x_reverse[start:stop] =  -x_reverse[start:stop]
-            # y_range[start:stop] =  -y_range[start:stop]
-
-            
-
             start = start+2*y_len
 
         x_mat = np.matmul(x_reverse, x_range.reshape((1, x_res)))
@@ -735,10 +728,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
         return {"x_mat": x_mat, "y_mat": y_mat} 
 
-    elif structure == StructureType.Circles:
-        #r_rep = 3
-        #r_len = int(y_res/(2*r_rep))
-        # r_len = [int(0.4*y_res/2), int(0.25*y_res/2) + int(0.15*y_res/2)]
+    elif structure == StructureType.Circles or structure == StructureType.Circles5Colors:
         r_ratios = [0.6,0.3,0.1] 
         x_range = np.linspace(-1*scaling, scaling, num = x_res)
         y_range = np.linspace(-1*scaling, scaling, num = y_res)
@@ -748,7 +738,6 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
         # x = r × cos( θ )
         # y = r × sin( θ )
-        #radius_index = 0
         for xx in range(x_res):
             # center
             x = xx - (x_res/2)
@@ -836,7 +825,7 @@ def get_fidelity(input_image_path, prediction_image_path):
 
 # bg = background, 1 for white 0 for black
 # returns PIL image
-def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1, gradient = 1):
+def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
    
     # why twice???
     out_names = ["r0","g0","b0","r1","g1","b1"]
@@ -862,8 +851,9 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
 
             # an array with values between 0 and 1
             pixels = node_func(x=inp_x, y=inp_y)
+            print(pixels)
             pixels_np = pixels.numpy()
-            image_array[:,:, c] = np.reshape(pixels_np, (h,w))
+            image_array[:,:,c] = np.reshape(pixels_np, (h, w))
             for x in range(h):
                 for y in range(w):
                     if x_dat[x][y] == -1:
@@ -888,7 +878,6 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         pixels_np = pixels.numpy()
         pixels_np = np.reshape(pixels_np, (h, w)) 
 
-        # same
         image_array = pixels_np
         for x in range(h):
             for y in range(w):
@@ -1035,7 +1024,9 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                     # bonus for strength
                     score_d = score_direction#*min(1,score_strength)
 
-            elif structure == StructureType.Circles or structure == StructureType.CirclesFree:
+            elif structure == StructureType.Circles \
+                    or structure == StructureType.CirclesFree \
+                    or structure == StructureType.Circles5Colors:
                 max_strength = 0.3 # 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength) 
                 score_0 = ratio[0]
@@ -1206,7 +1197,7 @@ if __name__ == "__main__":
             config += "/neat_configs/free.txt"
         elif args.structure == StructureType.Circles5Colors:
             config += "/neat_configs/circles5.txt"
-            arg.gradient = 0
+            args.gradient = 0
         else:
             config += "/neat_configs/default.txt"
         
