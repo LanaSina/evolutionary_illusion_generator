@@ -999,8 +999,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     scores = [None] * len(population)
     for i in range(0, len(population)):
         final_score = -100
-        temp_index = -1
-        mean_score = 0
         # traverse latent space
         for j in range(0, int(2 / s_step)):
             index = i * pertype_count + j
@@ -1013,14 +1011,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                 good_vectors = ratio[1]
 
                 if (len(good_vectors) > 0):
-                    y = 0
-                    count = 0
                     stripes = 4
                     step = h / stripes
-                    score_direction = 0
-                    discord = 0
-                    orientation = 0
-
                     score_direction = horizontal_symmetry_score(good_vectors, [0, step * 2])
 
                     # bonus for strength
@@ -1037,14 +1029,10 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
                 if (len(good_vectors) > min_vectors):
                     # get tangent scores
-                    score_direction = 0
                     limits = [0, h / 2]
-                    # temp = h/(2*3)
-                    # limits = [temp*2, temp*3]
                     score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
                     score_strength = strength_number(good_vectors, max_strength)
                     score_d = 0.7 * score_direction + 0.3 * score_strength
-                    # print(i, "score_direction", score_direction, "score_strength", score_strength, "final", score_d)
 
             elif structure == StructureType.Free:
                 max_strength = 0.4
@@ -1082,9 +1070,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         i = i + 1
 
     # save best illusion
-    # image_name = images_list[best_illusion]
-    # move_to_name = best_dir + "/best_bw.png"
-    # shutil.copy(image_name, move_to_name)
     print("best", image_name, best_illusion)
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best.png"
