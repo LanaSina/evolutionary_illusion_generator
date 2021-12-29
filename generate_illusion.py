@@ -233,7 +233,7 @@ def rotation_symmetry_score(vectors, w, h, limits=None, original_filename="temp.
 # agreement inside the cell, + disagreement outside of it
 def inside_outside_score(vectors, width, height):
     step = width / 5  # px
-    # build an array of vectors 
+    # build an array of vectors
     w = int(width / step) + 1
     h = int(height / step) + 1
     flow_array = np.zeros((w, h, 2))
@@ -242,7 +242,7 @@ def inside_outside_score(vectors, width, height):
     norm_sum_array = np.zeros((w, h))
 
     # take the mean for vectors in the same cell, and calculate agreement score
-    # vectors orientation 
+    # vectors orientation
     for index in range(0, len(vectors)):
         v = vectors[index]
         i = int(v[0] / step)
@@ -326,13 +326,13 @@ def divergence_convergence_score(vectors, width, height):
 
     score = 0
     step = 10  # px
-    # build an array of vectors 
+    # build an array of vectors
     w = int(width / step)
     h = int(height / step)
     flow_array = np.zeros((w, h, 2))
 
     # TODO: take the mean for vectors in the same cell
-    # vectors orientation 
+    # vectors orientation
     for index in range(0, len(vectors)):
         v = vectors[index]
         i = int(v[0] / step)
@@ -415,7 +415,7 @@ def tangent_ratio(vectors, w, h, limits=None):
         # if(v[0]!=106): continue #39
 
         # oh boy
-        # v 
+        # v
         v[0] = v[0] - c[0]
         v[1] = v[1] - c[1]
         v[2] = v[0] + v[2]
@@ -435,7 +435,7 @@ def tangent_ratio(vectors, w, h, limits=None):
             count = count + 1
             continue
 
-        # normalize 
+        # normalize
         ro = ro / norm_r
         vo = vo / norm_v
 
@@ -522,8 +522,9 @@ def get_vectors(image_path, model_name, w, h):
 # xx yy cartesian x and y, origin relative to whole grid
 # x,y coordinates relative to center
 # direction: 1 or -1
-def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Circles):  # max diameter?
-    r_total = np.sqrt(x * x + y * y)
+def fill_circle(x, y, xx, yy, max_diameter, direction, structure=StructureType.Circles):
+    #objective_r = np.sqrt(xx * xx + yy * yy)
+    scaled_r = np.sqrt(x * x + y * y)
 
     n_ratios = 10
     r_ratios = np.zeros(n_ratios)
@@ -537,16 +538,17 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
     # limit values to frame
     theta = 0
     r = -1
-    if r_total <= max_radius / 2:
+    if scaled_r <= max_diameter / 2:
         # it repeats every r_len
-        radius = min(1, r_total / (max_radius / 2))
+        # normalize the radius
+        radius = min(1, scaled_r / (max_diameter / 2))
 
         radius_index = 0
         for i in range(1, n_ratios - 1):
             if radius > r_ratios[i]:
                 r = (radius - r_ratios[i]) / (r_ratios[i - 1] - r_ratios[i])
                 radius_index = n_ratios - i - 1
-                break;
+                break
 
         if structure == StructureType.Circles:
             # now structure theta values
@@ -570,7 +572,6 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
                 theta = (math.pi / 6.0) - theta
 
         elif structure == StructureType.CirclesFree:
-
             # now structure theta values
             if x == 0:
                 theta = math.pi / 2.0
@@ -663,7 +664,7 @@ def enhanced_image_grid(x_res, y_res, structure):
             if index % 2 == 0:
                 direction = -1
             for xx in range(x_step):
-                # shift coordinate to center 
+                # shift coordinate to center
                 real_x = (col * x_step + xx) + (int)(x_step / 2)
                 x = real_x - centers[index][0]
                 for yy in range(y_step):
@@ -677,8 +678,8 @@ def enhanced_image_grid(x_res, y_res, structure):
 
     return {"x_mat": x_mat, "y_mat": y_mat}
 
-
-def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
+# res_factor = reduce the actual number of different pixels by this factor
+def create_grid(structure, x_res=32, y_res=32, scaling=1.0, res_factor=1):
     r_mat = None
     x_mat = None
     y_mat = None
@@ -687,7 +688,6 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
     if structure == StructureType.Bands:
         y_rep = 4
         padding = 10
-        total_padding = padding * (y_rep - 1)
         y_len = int(y_res / y_rep)
         sc = scaling / y_rep
         a = np.linspace(-1 * sc, sc, num=y_len - padding)
@@ -699,7 +699,7 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
         sc = scaling / x_rep
         a = np.linspace(-1 * sc, sc, num=x_len)
         x_range = np.tile(a, x_rep)
-        # reverse the x axis 
+        # reverse the x axis
         # todo: ,1 not needed
         x_reverse = np.ones((y_res, 1))
         start = y_len
@@ -723,23 +723,24 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
 
         return {"x_mat": x_mat, "y_mat": y_mat}
 
-    elif structure == StructureType.Circles or structure == StructureType.Circles5Colors:
-        r_ratios = [0.6, 0.3, 0.1]
-        x_range = np.linspace(-1 * scaling, scaling, num=x_res)
-        y_range = np.linspace(-1 * scaling, scaling, num=y_res)
+    elif structure == StructureType.Circles:
+        # test: reduce resolution
+        sub_x_res = x_res/res_factor
+        sub_y_res = y_res/res_factor
+        # displace center
+        x_range = np.linspace(-int(x_res/2), int(x_res/2), num=int(sub_x_res))
+        x_range = np.repeat(x_range, res_factor)
+        y_range = np.linspace(-int(y_res/2), int(y_res/2), num=int(sub_y_res))
+        y_range = np.repeat(y_range, res_factor)
 
+        # this is also useless
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-        # x = r × cos( θ )
-        # y = r × sin( θ )
         for xx in range(x_res):
-            # center
-            x = xx - (x_res / 2)
+            x = x_range[xx]
             for yy in range(y_res):
-                y = yy - (y_res / 2)
-
+                y = y_range[yy] #yy - (y_res / 2)
                 r, theta = fill_circle(x, y, xx, yy, y_res, 1)
-
                 x_mat[yy, xx] = r
                 y_mat[yy, xx] = theta
         return {"x_mat": x_mat, "y_mat": y_mat}
@@ -752,9 +753,6 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
 
         y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
         x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
-
-        # x = r × cos( θ )
-        # y = r × sin( θ )
         for xx in range(x_res):
             # center
             x = xx - (x_res / 2)
@@ -945,7 +943,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     images_list = [None] * total_count
     repeated_images_list = [None] * (total_count + repeat)
     i = 0
-    image_inputs = create_grid(structure, w, h, 10)
+    image_inputs = create_grid(structure, w, h, 10) # scaling = 10
     for genome_id, genome in population:
         # traverse latent space
         j = 0
