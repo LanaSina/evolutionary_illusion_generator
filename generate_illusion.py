@@ -26,7 +26,7 @@ class StructureType(IntEnum):
     Circles = 1
     Free = 2
     CirclesFree = 3
-    Circles5Colors = 4
+    # Circles5Colors = 4
 
 
 # returns ratio and vectors that are not unplausibly big
@@ -835,33 +835,48 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
             out_names
         )
 
-        # 3 nodes, one for each of r,g,b
-        for node_func in net_nodes:
-            # an array with values between 0 and 1
+        if gradient == 1:
+            # 3 nodes, one for each of r,g,b
+            for node_func in net_nodes:
+                # an array with values between 0 and 1
+                pixels = node_func(x=inp_x, y=inp_y)
+                pixels_np = pixels.numpy()
+                image_array[:, :, c] = np.reshape(pixels_np, (h, w))
+                for x in range(h):
+                    for y in range(w):
+                        if x_dat[x][y] == -1:
+                            image_array[x, y, c] = bg  # white or black
+                c = c + 1
+            img_data = np.array(image_array * 255.0, dtype=np.uint8)
+        else:
+            node_func = net_nodes[0]
             pixels = node_func(x=inp_x, y=inp_y)
             pixels_np = pixels.numpy()
-            image_array[:, :, c] = np.reshape(pixels_np, (h, w))
-            for x in range(h):
-                for y in range(w):
-                    if x_dat[x][y] == -1:
-                        image_array[x, y, c] = bg  # white or black
-            c = c + 1
+            image_array = np.reshape(pixels_np, (h, w))
 
-        if gradient == 0:
             # 0 to 4
             # black, white, r, g, or b=255
-            color_data = np.array(image_array * 5.0, dtype=np.uint8)
+            color_data = np.array(image_array * 4.0, dtype=np.uint8)
             color_data = np.round(color_data)
             img_data = np.zeros((h, w, 3))
             # fill each channel
             # white
-            img_data[:, :, :] = np.where(color_data == 1, 255, img_data)
+            img_data[:, :, 0] = np.where(color_data == 0, 255, img_data[:, :, 0])
+            img_data[:, :, 1] = np.where(color_data == 0, 255, img_data[:, :, 1])
+            img_data[:, :, 2] = np.where(color_data == 0, 255, img_data[:, :, 2])
             # rgb
-            img_data[:, :, 0] = np.where(color_data == 2, 255, img_data)
-            img_data[:, :, 1] = np.where(color_data == 3, 255, img_data)
-            img_data[:, :, 2] = np.where(color_data == 4, 255, img_data)
+            img_data[:, :, 0] = np.where(color_data == 1, 255, img_data[:, :, 0])
+            img_data[:, :, 1] = np.where(color_data == 2, 255, img_data[:, :, 1])
+            img_data[:, :, 2] = np.where(color_data == 3, 255, img_data[:, :, 2])
 
-        img_data = np.array(image_array * 255.0, dtype=np.uint8)
+            # fill background
+            for x in range(h):
+                for y in range(w):
+                    if x_dat[x][y] == -1:
+                        img_data[x, y] = [bg*255, bg*255, bg*255]  # white or black
+
+            img_data = np.array(img_data, dtype=np.uint8)
+
         image = Image.fromarray(img_data)
     # grayscale
     else:
@@ -884,10 +899,9 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
 
         # for no gradients
         if gradient == 0:
-            img_data = np.round(image_array)
-        else:
-            img_data = np.array(image_array * 255.0, dtype=np.uint8)
+            image_array = np.round(image_array)
 
+        img_data = np.array(image_array * 255.0, dtype=np.uint8)
         image = Image.fromarray(img_data, 'L')
 
     return image
@@ -1178,14 +1192,14 @@ if __name__ == "__main__":
             config += "/neat_configs/bands.txt"
         elif args.structure == StructureType.Circles or args.structure == StructureType.CirclesFree:
             if args.color_space > 1:
-                config += "/neat_configs/circles.txt"
+                if args.gradient == 1:
+                    config += "/neat_configs/circles.txt"
+                else:
+                    config += "/neat_configs/circles_bw.txt"
             else:
                 config += "/neat_configs/circles_bw.txt"
         elif args.structure == StructureType.Free:
             config += "/neat_configs/free.txt"
-        elif args.structure == StructureType.Circles5Colors:
-            config += "/neat_configs/circles5.txt"
-            args.gradient = 0
         else:
             config += "/neat_configs/default.txt"
 
