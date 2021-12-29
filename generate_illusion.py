@@ -679,7 +679,7 @@ def enhanced_image_grid(x_res, y_res, structure):
     return {"x_mat": x_mat, "y_mat": y_mat}
 
 # res_factor = reduce the actual number of different pixels by this factor
-def create_grid(structure, x_res=32, y_res=32, scaling=1.0, res_factor=1):
+def create_grid(structure, x_res=32, y_res=32, scaling=1.0, res_factor=2):
     r_mat = None
     x_mat = None
     y_mat = None
@@ -727,19 +727,18 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0, res_factor=1):
         # test: reduce resolution
         sub_x_res = x_res/res_factor
         sub_y_res = y_res/res_factor
-        # displace center
+        # displace origin to center
         x_range = np.linspace(-int(x_res/2), int(x_res/2), num=int(sub_x_res))
         x_range = np.repeat(x_range, res_factor)
         y_range = np.linspace(-int(y_res/2), int(y_res/2), num=int(sub_y_res))
         y_range = np.repeat(y_range, res_factor)
 
-        # this is also useless
-        y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-        x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
+        y_mat = np.zeros((y_res, x_res))
+        x_mat = np.zeros((y_res, x_res))
         for xx in range(x_res):
             x = x_range[xx]
             for yy in range(y_res):
-                y = y_range[yy] #yy - (y_res / 2)
+                y = y_range[yy]
                 r, theta = fill_circle(x, y, xx, yy, y_res, 1)
                 x_mat[yy, xx] = r
                 y_mat[yy, xx] = theta
