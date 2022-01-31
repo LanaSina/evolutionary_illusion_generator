@@ -240,14 +240,15 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
     return images_list, image_inputs
 
 
-# score
+# score: how colorful each disk is on a every radius value
+# TODO should also score how similar the values are on a radius
 def get_mean_radius_score(image_array, size):
     # width of disk slice to examine
     wd = 4 #px
     max_radius = (h/2) - 5
     n_slices = (int) (max_radius/wd + 0.5)
 
-    store = np.zeros((n_slices,3))
+    store = np.zeros((n_slices))
     counts = np.zeros((n_slices))
 
     # for each concentric circle of thickness wd
@@ -268,8 +269,6 @@ def get_mean_radius_score(image_array, size):
     for index in range(n_slices):
         # should normalize properly...
         mean_r[index] = store[index]/counts[index]
-
-
 
     # finally take the mean for all radii
     score = sum(mean_r)/n_slices
