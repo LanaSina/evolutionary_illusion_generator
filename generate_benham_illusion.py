@@ -243,32 +243,33 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
 # score
 def get_mean_radius_score(image_array, size):
     # width of disk slice to examine
-    wd = 2 #px
-    # get this properly
+    wd = 4 #px
     max_radius = (h/2) - 5
     n_slices = (int) (max_radius/wd + 0.5)
-    #
+
     store = np.zeros((n_slices,3))
     counts = np.zeros((n_slices))
 
+    # for each concentric circle of thickness wd
+    # calculate how colorful each pixel is
+    # ie, the variance of rgb
     for i in range(size[0]):
         for j in range(size[1]):
             x = size[0]/2 - i
             y = size[1]/2 - j
             r = np.sqrt(x*x+y*y)
-            if r<=max_radius:
+            if r <= max_radius:
                 index = int(r/wd)
-                store[index] += image_array[j,i]
+                store[index] += np.var(image_array[j, i])
                 counts[index] += 1
 
-    #print(store)
-    # take the mean difference for each radius
+    # take the mean for each disk
     mean_r = [None]*n_slices
     for index in range(n_slices):
-        mean_r[index] = sum(store[index])/(counts[index]*3*255)
+        # should normalize properly...
+        mean_r[index] = store[index]/counts[index]
 
-    # sad to just mush everything together here
-    # score = sum(store)/sum(counts)
+
 
     # finally take the mean for all radii
     score = sum(mean_r)/n_slices
@@ -319,7 +320,8 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
         image_diff = Image.fromarray(np.abs(array_diff))
         image_diff_path = dif_dir + "/" + str(i).zfill(3) + ".png"
         image_diff.save(image_diff_path)
-        diff = get_mean_radius_score(original_image-predicted_image, size)
+        # diff = get_mean_radius_score(original_image-predicted_image, size)
+        diff = get_mean_radius_score(predicted_image, size)
         scores[i] = diff
 
     return scores
@@ -348,7 +350,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
     # calculate fitnesses using Prednet
     # 1 get absolute color differences per radius
-    scores = color_diff = radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
+    scores = radius_color_difference(images_list, population_size, model_name, size, channels, gpu, output_dir,
         repeat, c_dim)
 
     print("scores", scores)
