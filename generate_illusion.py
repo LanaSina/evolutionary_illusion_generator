@@ -679,7 +679,7 @@ def enhanced_image_grid(x_res, y_res, structure):
     return {"x_mat": x_mat, "y_mat": y_mat}
 
 # res_factor = reduce the actual number of different pixels by this factor
-def create_grid(structure, x_res=32, y_res=32, scaling=1.0, res_factor=2):
+def create_grid(structure, x_res=32, y_res=32, scaling=1.0, res_factor=4):
     r_mat = None
     x_mat = None
     y_mat = None
