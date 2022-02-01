@@ -30,12 +30,12 @@ class StructureType(IntEnum):
 
 def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
-    r_mat = None 
+    r_mat = None
     x_mat = None
     y_mat = None
     num_points = x_res*y_res
     max_radius = (h/2) - 5
-   
+
     # just some nice circles
     x_range = np.linspace(-1*scaling, scaling, num = x_res)
     y_range = np.linspace(-1*scaling, scaling, num = y_res)
@@ -50,7 +50,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
         for yy in range(y_res):
             y = yy - (y_res/2)
             r_total = np.sqrt(x*x + y*y)
-            
+
             # limit values to frame
             r = min(r_total, y_res/2)
             # normalize
@@ -75,22 +75,22 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 #final normalization
                 r = r/0.8
 
-            x_mat[yy,xx] = r 
-            y_mat[yy,xx] = theta 
+            x_mat[yy,xx] = r
+            y_mat[yy,xx] = theta
 
     return {"x_mat": x_mat, "y_mat": y_mat}
 
 
 # bg = background, 1 for white 0 for black
 def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1, bg = 1, gradient = 1):
-   
+
     out_names = ["r0","g0","b0","r1","g1","b1"]
     leaf_names = ["x","y"]
     x_dat = inputs["x_mat"]
     y_dat = inputs["y_mat"]
     inp_x = torch.tensor(x_dat.flatten())
     inp_y = torch.tensor(y_dat.flatten())
-   
+
     #or h w ??
 
     if(c_dim>1):
@@ -135,7 +135,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
         node_func = net_nodes[0]
         pixels = node_func(x=inp_x, y=inp_y)
         pixels_np = pixels.numpy()
-        pixels_np = np.reshape(pixels_np, (h, w)) 
+        pixels_np = np.reshape(pixels_np, (h, w))
         # same
         image_array = pixels_np
         for x in range(h):
@@ -165,7 +165,7 @@ def full_rotation(image, angle, output_dir, index=0, c_dim=1):
     rotated_images_list = [None]*rotations
 
     image_name = output_dir + "/" + str(index).zfill(3) + ".png"
-    rotated_images_list[0] = image_name 
+    rotated_images_list[0] = image_name
     white_color = (255,255,255)
     if c_dim == 1:
         white_color = 255
@@ -242,7 +242,8 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
 
 # score: how colorful each disk is on a every radius value
 # TODO should also score how similar the values are on a radius
-def get_mean_radius_score(image_array, size):
+def get_mean_radius_score(image_array):
+    size = image_array.shape
     # width of disk slice to examine
     wd = 4 #px
     max_radius = (h/2) - 5
@@ -256,27 +257,30 @@ def get_mean_radius_score(image_array, size):
     counts = np.zeros((n_slices))
 
     # index rgb by radius
-    radii = np.zeros(size)
+    radii = np.zeros((size[0], size[1]))
     for i in range(size[0]):
         for j in range(size[1]):
             x = size[0] / 2 - i
             y = size[1] / 2 - j
             r = np.sqrt(x * x + y * y)
-            radii[i,j] = r
+            radii[i, j] = r
 
     # extract flat rbg array for each radius
     slices = [None]*n_slices
-    for i in n_slices:
-        indices = np.where(radii <= i*wd)
-        masked = [image_array[index] for index in indices]
-        slices[i] = masked.flatten(-1, 3)
+    for i in range(n_slices):
+        indices = np.where((radii <= i*wd) & (radii > (i-1)*wd))
+        # get actual pairs ij
+        indices = np.asarray(indices).T
+        # print(max(indices[:,0]), max(indices[:,1]))
+        masked = np.array([image_array[index[0], index[1]] for index in indices])
+        slices[i] = masked.reshape(-1, 3)
 
     # calculate the 2 score values
-    for i in n_slices:
-        color_var[i] = np.var(slices[i][0]) + np.var(slices[i][1]) + np.var(slices[i][2])
+    for i in range(n_slices):
+        color_var[i] = np.var(slices[i][:, 0]) + np.var(slices[i][:, 1]) + np.var(slices[i][:, 2])
         color_var[i] = color_var[i]/3
 
-        for j in len(slices[i]):
+        for j in range(len(slices[i])):
             bw_variance[i] += np.var(slices[i][j])
         bw_variance[i] = bw_variance[i]/len(slices[i])
 
@@ -288,30 +292,6 @@ def get_mean_radius_score(image_array, size):
     # max var == 255^2/4 ? https://math.stackexchange.com/questions/83046/maximum-of-the-variance-function-for-given-set-of-bounded-numbers
     max_var = 255*255/4
     score = (max_var - score_0 + score_1)/(max_var*2)
-
-
-    # # for each concentric circle of thickness wd
-    # # calculate how colorful each pixel is
-    # # ie, the variance of rgb
-    # for i in range(size[0]):
-    #     for j in range(size[1]):
-    #         x = size[0]/2 - i
-    #         y = size[1]/2 - j
-    #         r = np.sqrt(x*x+y*y)
-    #         if r <= max_radius:
-    #             index = int(r/wd)
-    #             bw_variance[index] += np.var(image_array[j, i])
-    #             color_similarity
-    #             counts[index] += 1
-    #
-    # # take the mean for each disk
-    # mean_r = [None]*n_slices
-    # for index in range(n_slices):
-    #     # should normalize properly...
-    #     mean_r[index] = radius_variances[index]/counts[index]
-    #
-    # # finally take the mean for all radii
-    # score = sum(mean_r)/n_slices
 
     return score
 
@@ -332,8 +312,8 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
     # how many frames to predict
     extension_duration = 1 #2
     # runs repeat x times on the input image, save in result folder
-    test_prednet(initmodel = model_name, sequence_list = [images_list], size=size, 
-                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip, 
+    test_prednet(initmodel = model_name, sequence_list = [images_list], size=size,
+                channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
                 extension_start = repeat, extension_duration = extension_duration,
                 reset_at = repeat+extension_duration, verbose = 0, c_dim = c_dim
                 )
@@ -360,7 +340,7 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
         image_diff_path = dif_dir + "/" + str(i).zfill(3) + ".png"
         image_diff.save(image_diff_path)
         # diff = get_mean_radius_score(original_image-predicted_image, size)
-        diff = get_mean_radius_score(predicted_image, size)
+        diff = get_mean_radius_score(predicted_image)
         scores[i] = diff
 
     return scores
@@ -372,12 +352,12 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
     population_size = len(population)
     print("Calculating fitnesses of populations: ", len(population))
-    output_dir = "temp/" 
+    output_dir = "temp/"
     repeat = 20
     half_h = int(h/2)
     size = [w,h]
     skip = 1
-    
+
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
 
@@ -421,7 +401,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     #     s_val = -1, bg = 0, gradient=gradient)
     # image_name = best_dir + "/best_black_bg.png"
     # image_blackbg.save(image_name, "PNG")
-    
+
 
 def mutate_genome(genome):
     n = max(0, genome["number_mutation"] + round(random()))
@@ -438,7 +418,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels
     half_h = int(h/2)
     size = [w,h]
 
-    best_dir = output_dir 
+    best_dir = output_dir
     if not os.path.exists(best_dir):
         os.makedirs(best_dir)
 
@@ -494,7 +474,7 @@ if __name__ == "__main__":
 
 
     args = parser.parse_args()
-    output_dir = args.output_dir 
+    output_dir = args.output_dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -507,7 +487,7 @@ if __name__ == "__main__":
 
     config = args.config
     config += "benham.txt"
-        
+
     print("config", config)
     print("gradient", args.gradient)
 
