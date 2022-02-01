@@ -248,30 +248,70 @@ def get_mean_radius_score(image_array, size):
     max_radius = (h/2) - 5
     n_slices = (int) (max_radius/wd + 0.5)
 
-    store = np.zeros((n_slices))
+    # coloration strength: r,g,b must be very different
+    bw_variance = np.zeros((n_slices))
+    # how much unity in color: r similar to other rs, g to gs etc
+    color_var = np.zeros((n_slices))
+
     counts = np.zeros((n_slices))
 
-    # for each concentric circle of thickness wd
-    # calculate how colorful each pixel is
-    # ie, the variance of rgb
+    # index rgb by radius
+    radii = np.zeros(size)
     for i in range(size[0]):
         for j in range(size[1]):
-            x = size[0]/2 - i
-            y = size[1]/2 - j
-            r = np.sqrt(x*x+y*y)
-            if r <= max_radius:
-                index = int(r/wd)
-                store[index] += np.var(image_array[j, i])
-                counts[index] += 1
+            x = size[0] / 2 - i
+            y = size[1] / 2 - j
+            r = np.sqrt(x * x + y * y)
+            radii[i,j] = r
 
-    # take the mean for each disk
-    mean_r = [None]*n_slices
-    for index in range(n_slices):
-        # should normalize properly...
-        mean_r[index] = store[index]/counts[index]
+    # extract flat rbg array for each radius
+    slices = [None]*n_slices
+    for i in n_slices:
+        indices = np.where(radii <= i*wd)
+        masked = [image_array[index] for index in indices]
+        slices[i] = masked.flatten(-1, 3)
 
-    # finally take the mean for all radii
-    score = sum(mean_r)/n_slices
+    # calculate the 2 score values
+    for i in n_slices:
+        color_var[i] = np.var(slices[i][0]) + np.var(slices[i][1]) + np.var(slices[i][2])
+        color_var[i] = color_var[i]/3
+
+        for j in len(slices[i]):
+            bw_variance[i] += np.var(slices[i][j])
+        bw_variance[i] = bw_variance[i]/len(slices[i])
+
+    # merge scores
+    # should be as low as possible
+    score_0 = np.mean(color_var)
+    # should be as high as possible
+    score_1 = np.mean(bw_variance)
+    # max var == 255^2/4 ? https://math.stackexchange.com/questions/83046/maximum-of-the-variance-function-for-given-set-of-bounded-numbers
+    max_var = 255*255/4
+    score = (max_var - score_0 + score_1)/(max_var*2)
+
+
+    # # for each concentric circle of thickness wd
+    # # calculate how colorful each pixel is
+    # # ie, the variance of rgb
+    # for i in range(size[0]):
+    #     for j in range(size[1]):
+    #         x = size[0]/2 - i
+    #         y = size[1]/2 - j
+    #         r = np.sqrt(x*x+y*y)
+    #         if r <= max_radius:
+    #             index = int(r/wd)
+    #             bw_variance[index] += np.var(image_array[j, i])
+    #             color_similarity
+    #             counts[index] += 1
+    #
+    # # take the mean for each disk
+    # mean_r = [None]*n_slices
+    # for index in range(n_slices):
+    #     # should normalize properly...
+    #     mean_r[index] = radius_variances[index]/counts[index]
+    #
+    # # finally take the mean for all radii
+    # score = sum(mean_r)/n_slices
 
     return score
 
