@@ -275,23 +275,49 @@ def get_mean_radius_score(image_array):
         masked = np.array([image_array[index[0], index[1]] for index in indices])
         slices[i] = masked.reshape(-1, 3)
 
-    # calculate the 2 score values
+    # calculate inter-disk variance
+    m = np.zeros((n_slices,3))
     for i in range(n_slices):
-        color_var[i] = np.var(slices[i][:, 0]) + np.var(slices[i][:, 1]) + np.var(slices[i][:, 2])
-        color_var[i] = color_var[i]/3
+        a = [np.mean(slices[i][:, 0]), np.mean(slices[i][:, 1]), np.mean(slices[i][:, 2])]
+        m[i] = a
 
+    score_0 = np.var(m[:, 0]) + np.var(m[:, 1]) + np.var(m[:, 2])
+    score_0 = score_0/3
+
+    # calculate intra-disc colorfulness
+    for i in range(n_slices):
         for j in range(len(slices[i])):
             bw_variance[i] += np.var(slices[i][j])
         bw_variance[i] = bw_variance[i]/len(slices[i])
 
-    # merge scores
-    # should be as low as possible
-    score_0 = np.mean(color_var)
-    # should be as high as possible
     score_1 = np.mean(bw_variance)
-    # max var == 255^2/4 ? https://math.stackexchange.com/questions/83046/maximum-of-the-variance-function-for-given-set-of-bounded-numbers
-    max_var = 255*255/4
-    score = (max_var - score_0 + score_1)/(max_var*2)
+
+    score = (score_0 + score_1)/2
+    #
+    # # calculate the 2 score values
+    # for i in range(n_slices):
+    #     color_var[i] = np.var(slices[i][:, 0]) + np.var(slices[i][:, 1]) + np.var(slices[i][:, 2])
+    #     color_var[i] = color_var[i]/3
+    #
+    #     for j in range(len(slices[i])):
+    #         bw_variance[i] += np.var(slices[i][j])
+    #     bw_variance[i] = bw_variance[i]/len(slices[i])
+    #
+    # # merge scores
+    # # should be as low as possible
+    # score_0 = np.mean(color_var)
+    # # should be as high as possible
+    # score_1 = np.mean(bw_variance)
+    # # max var == 255^2/4 ? https://math.stackexchange.com/questions/83046/maximum-of-the-variance-function-for-given-set-of-bounded-numbers
+    # max_var = 255*255/4
+    # # give them different weights or the result is just a white circle
+    # #score = (0.1*(max_var - score_0) + 0.9*score_1)/max_var
+    #
+    # if score_0 < 100:
+    #     score = -1
+    # else:
+    #     print(score_0)
+    #     score = (0.5 * (max_var - score_0) + 0.5 * score_1) / max_var
 
     return score
 
