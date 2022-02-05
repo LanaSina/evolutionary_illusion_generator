@@ -76,7 +76,7 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 r = r/0.8
 
             x_mat[yy,xx] = r
-            y_mat[yy,xx] = theta
+            y_mat[yy,xx] = 0#theta
 
     return {"x_mat": x_mat, "y_mat": y_mat}
 

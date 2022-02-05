@@ -15,7 +15,7 @@ class SimpleApp(object):
     def draw(self):
         image = Image.open(self.filename)
         angle = 0
-        speed = 10 # 10
+        speed = 15 # 10
         while True:
             tkimage = ImageTk.PhotoImage(image.rotate(angle, fillcolor = "white"))
             canvas_obj = self.canvas.create_image(
@@ -27,5 +27,5 @@ class SimpleApp(object):
             angle %= 360
 
 root = tk.Tk()
-app = SimpleApp(root, '../evolved_illusions/benham/00.png')
+app = SimpleApp(root, '../evolved_illusions/benham/12.png')
 root.mainloop()
