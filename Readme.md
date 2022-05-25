@@ -14,7 +14,7 @@ EIGen generates static images that appear to move: motion illusions. It is based
 
 ## Quick Start
 
-Open illusion_generation.ipynb in Colab: https://colab.research.google.com/notebooks/intro.ipynb#recent=true
+Open illusion_generation.ipynb in Colab: https://colab.research.google.com/github/LanaSina/evolutionary_illusion_generator/blob/master/illusion_generation.ipynb
 
 Run each cell as needed.
 
