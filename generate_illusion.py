@@ -599,6 +599,7 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
     return r, theta
 
 
+# creates big image with several circles
 def enhanced_image_grid(x_res, y_res, structure):
     x_mat = None
     y_mat = None
@@ -629,14 +630,10 @@ def enhanced_image_grid(x_res, y_res, structure):
             index = c_rows * c_cols + y * sub_cols + x
             centers[index] = [x_step * x + x_step, y_step * y + x_step]
 
-    # radial repetition
-    r_rep = 3
-    r_len = int(y_step / (2 * r_rep))
-    x_range = np.linspace(-1 * scaling, scaling, num=x_res)
-    y_range = np.linspace(-1 * scaling, scaling, num=y_res)
 
-    y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
-    x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
+    y_mat = np.ones((y_res, x_res))*-1
+    x_mat = np.ones((y_res, x_res))*-1
+
 
     for row in range(c_rows):
         for col in range(c_cols):
