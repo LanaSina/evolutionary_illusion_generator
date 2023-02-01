@@ -30,16 +30,12 @@ class StructureType(IntEnum):
 
 def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
 
-    r_mat = None
-    x_mat = None
-    y_mat = None
-    num_points = x_res*y_res
     max_radius = (h/2) - 5
+    print("center", x_res/2, y_res/2, "total", h, w)
 
     # just some nice circles
     x_range = np.linspace(-1*scaling, scaling, num = x_res)
     y_range = np.linspace(-1*scaling, scaling, num = y_res)
-
 
     y_mat = np.matmul(y_range.reshape((y_res, 1)), np.ones((1, x_res)))
     x_mat = np.matmul(np.ones((y_res, 1)), x_range.reshape((1, x_res)))
@@ -67,16 +63,16 @@ def create_grid(structure, x_res = 32, y_res = 32, scaling = 1.0):
                 if x<0:
                     theta = theta + math.pi
 
-             # keep some white space
+            # keep some white space
             if (r>0.9) or (r<0.1):
                 r = -1
                 theta = 0
-            else :
+            else:
                 #final normalization
                 r = r/0.8
 
             x_mat[yy,xx] = r
-            y_mat[yy,xx] = 0#theta
+            y_mat[yy,xx] = theta
 
     return {"x_mat": x_mat, "y_mat": y_mat}
 
@@ -90,8 +86,6 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
     y_dat = inputs["y_mat"]
     inp_x = torch.tensor(x_dat.flatten())
     inp_y = torch.tensor(y_dat.flatten())
-
-    #or h w ??
 
     if(c_dim>1):
         image_array = np.zeros(((h,w,c_dim)))
@@ -123,7 +117,7 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
             image_array = np.round(image_array)
 
         img_data = np.array(image_array*255.0, dtype=np.uint8)
-        image =  Image.fromarray(img_data)#, mode = "HSV")
+        image = Image.fromarray(img_data)#, mode = "HSV")
     else:
         image_array = np.zeros(((h,w)))
         net_nodes = create_cppn(
@@ -147,13 +141,13 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, scaling, config, s_val = 1,
             image_array = np.round(image_array)
 
         img_data = np.array(image_array*255.0, dtype=np.uint8)
-        image =  Image.fromarray(img_data , 'L')
+        image = Image.fromarray(img_data , 'L')
 
     return image
 
+
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
-
 
 
 # rotates an image by `angle` until it reaches 360 degrees
@@ -195,6 +189,7 @@ def get_repeat_rotation_list(partial_list, total_repeat):
     full_list[end_index:end_index+partial_rotation] = partial_list[0:partial_rotation]
     return full_list
 
+
 # returns input patterns and list of rotated images
 # todo: cleanup
 def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradient,
@@ -223,10 +218,9 @@ def cppn_patterns(population, repeat, structure, w, h, gpu, config, c_dim, gradi
         if not os.path.exists(pattern_folder):
             os.makedirs(pattern_folder)
 
-
         image_name = pattern_folder + str(0).zfill(3) + ".png"
         image_whitebg.save(image_name, "PNG")
-        image = np.asarray(Image.open(image_name))
+        print(image_whitebg)
         # save rotated images and get file names
         rotated_images_list = full_rotation(image_whitebg, angle, pattern_folder, 0, c_dim)
 
@@ -335,8 +329,8 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
     print("Predicting illusions...")
     # what?
     skip = 1
-    # how many frames to predict
-    extension_duration = 1 #2
+    # how many frames to predict after end of input
+    extension_duration = 0 #2
     # runs repeat x times on the input image, save in result folder
     test_prednet(initmodel = model_name, sequence_list = [images_list], size=size,
                 channels = channels, gpu = gpu, output_dir = prediction_dir, skip_save_frames=skip,
@@ -356,8 +350,8 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
         input_image = images_list[o_index]
         # open bw image as rgb
         original_image = np.asarray(Image.open(input_image).convert('RGB'))
-        p_index = (i+1)*repeat
-        predicted_image_path = prediction_dir + str(p_index).zfill(10) + "_extended.png"
+        p_index = (i+1)*repeat - 1
+        predicted_image_path = prediction_dir + str(p_index).zfill(10) + ".png"
         predicted_image = np.asarray(Image.open(predicted_image_path))
 
         # compare by radius
@@ -366,6 +360,7 @@ def radius_color_difference(images_list, population_size, model_name, size, chan
         image_diff_path = dif_dir + "/" + str(i).zfill(3) + ".png"
         image_diff.save(image_diff_path)
         # diff = get_mean_radius_score(original_image-predicted_image, size)
+        print(predicted_image_path)
         diff = get_mean_radius_score(predicted_image)
         scores[i] = diff
 
@@ -482,6 +477,43 @@ def string_to_intarray(string_input):
 
     return array
 
+
+def get_standard_images(c_dim):
+
+    repeat = 20
+    images_path = ["small_benham.jpg", "02.png"]
+    output_dir = "temp/"
+    total_count = repeat*1
+    images_list = [None]*total_count
+    index = 0
+    j = 0
+    angle = 90
+
+    for path in images_path:
+        image_whitebg = Image.open(path).convert('L')
+        print(image_whitebg)
+
+        # save image
+        pattern_folder = output_dir + "images/" + str(j).zfill(3) + "/"
+        # create folder
+        if not os.path.exists(pattern_folder):
+            os.makedirs(pattern_folder)
+
+        image_name = pattern_folder + str(0).zfill(3) + ".png"
+        image_whitebg.save(image_name, "PNG")
+        # save rotated images and get file names
+        rotated_images_list = full_rotation(image_whitebg, angle, pattern_folder, 0, c_dim)
+
+        # repeat rotated names as necessary
+        repeated_list = get_repeat_rotation_list(rotated_images_list, repeat)
+        images_list[index:index+repeat] = repeated_list
+
+        index += repeat
+        j = j+1
+
+    return images_list
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='generate illusions')
     parser.add_argument('--model', '-m', default='', help='.model file')
@@ -497,33 +529,70 @@ if __name__ == "__main__":
     parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
     parser.add_argument('--pixels', '-px', default=-1, type=int, help='-1 to use cppn, 0 for pixel evolution')
     parser.add_argument('--start', default="", help='pixel image to use as starting point')
-
-
     args = parser.parse_args()
+
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     w = 160
     h = 120
-    if args.size == "big":
-        w = 640
+    size = [w,h]
 
-        h = 480
+    images_list = get_standard_images(args.color_space)
 
-    config = args.config
-    config += "benham.txt"
+    scores = radius_color_difference(images_list, 2, args.model, size, string_to_intarray(args.channels), 0, args.output_dir,
+        20, args.color_space)
+    # scores = radius_color_difference(images_list, population_size, args.model, size, args.channels, 0, args.output_dir,
+    #     20, args.color_space)
 
-    print("config", config)
-    print("gradient", args.gradient)
+    # print(images_list)
+    print(scores)
 
-    gpu = 0
 
-    if(args.pixels<0):
-        neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
-        args.color_space, args.checkpoint, args.gradient, gpu)
-    else:
-        population_size = 20
-        pixel_evolution(population_size, output_dir, args.model,string_to_intarray(args.channels),
-        args.color_space, args.structure, args.start, gpu)
 
+
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description='generate illusions')
+#     parser.add_argument('--model', '-m', default='', help='.model file')
+#     parser.add_argument('--output_dir', '-o', default='.', help='path of output diectory')
+#     parser.add_argument('--structure', '-s', default=0, type=int, help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
+#     parser.add_argument('--config', '-cfg', default="./illusion_evolver/neat_configs/", help='path to the NEAT config file')
+#     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
+#     parser.add_argument('--size', '-wh', help='big or small', default="small")
+#     parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default=3, type=int)
+#     # [1,16,32,64]
+#     # 3,48,96,192
+#     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
+#     parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
+#     parser.add_argument('--pixels', '-px', default=-1, type=int, help='-1 to use cppn, 0 for pixel evolution')
+#     parser.add_argument('--start', default="", help='pixel image to use as starting point')
+#
+#
+#     args = parser.parse_args()
+#     output_dir = args.output_dir
+#     if not os.path.exists(output_dir):
+#         os.makedirs(output_dir)
+#
+#     w = 160
+#     h = 120
+#     if args.size == "big":
+#         w = 640
+#         h = 480
+#
+#     config = args.config
+#     config += "benham.txt"
+#
+#     print("config", config)
+#     print("gradient", args.gradient)
+#
+#     gpu = 0
+#
+#     if(args.pixels<0):
+#         neat_illusion(output_dir, args.model,config, args.structure, w, h, string_to_intarray(args.channels),
+#         args.color_space, args.checkpoint, args.gradient, gpu)
+#     else:
+#         population_size = 20
+#         pixel_evolution(population_size, output_dir, args.model,string_to_intarray(args.channels),
+#         args.color_space, args.structure, args.start, gpu)
+#

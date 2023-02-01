@@ -27,5 +27,7 @@ class SimpleApp(object):
             angle %= 360
 
 root = tk.Tk()
-app = SimpleApp(root, '../evolved_illusions/benham/12.png')
+app = SimpleApp(root, '../evolved_illusions/benham/14.png')
+#app = SimpleApp(root, '/Users/lana/Desktop/projects/illusions/benham_evo/ben_div.jpg')
+
 root.mainloop()
