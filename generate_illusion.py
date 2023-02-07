@@ -811,6 +811,44 @@ def get_fidelity(input_image_path, prediction_image_path):
     return 1 - err
 
 
+import colorsys
+def get_equilum_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
+    out_names = []  # ["r0","g0","b0","r1","g1","b1"]
+    leaf_names = ["x", "y"]
+    x_dat = inputs["x_mat"]
+    y_dat = inputs["y_mat"]
+    inp_x = torch.tensor(x_dat.flatten())
+    inp_y = torch.tensor(y_dat.flatten())
+
+    image_array = np.zeros(((h, w, c_dim)))
+    c = 0
+    net_nodes = create_cppn(
+        genome,
+        config,
+        leaf_names,
+        out_names
+    )
+
+    # 3 nodes, one for each of h,s,v
+    for node_func in net_nodes:
+        # an array with values between 0 and 1
+        pixels = node_func(x=inp_x, y=inp_y)
+        pixels_np = pixels.numpy()
+        image_array[:, :, c] = np.reshape(pixels_np, (h, w))
+        for x in range(h):
+            for y in range(w):
+                if x_dat[x][y] == -1:
+                    image_array[x, y, c] = bg  # white or black
+        c = c + 1
+
+    image_array = colorsys.hsv_to_rgb(image_array)
+    img_data = np.array(image_array, dtype=np.uint8)
+
+    image = Image.fromarray(img_data)
+
+    return image
+
+
 # bg = background, 1 for white 0 for black
 # returns PIL image
 def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
@@ -949,7 +987,9 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         for s in range(0, pertype_count):
             s_val = -1 + s * s_step
             index = i * pertype_count + j
-            image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient)
+
+
+            image_whitebg = get_equilum_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
             # image_blackbg = ..., bg = 0)
 
             # save  image
