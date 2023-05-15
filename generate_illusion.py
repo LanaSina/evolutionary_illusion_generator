@@ -989,8 +989,12 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             index = i * pertype_count + j
 
 
-            image_whitebg = get_equilum_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
+            # equiluminance
+            #image_whitebg = get_equilum_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
             # image_blackbg = ..., bg = 0)
+
+            image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
+
 
             # save  image
             image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
