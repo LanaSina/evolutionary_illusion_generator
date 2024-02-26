@@ -1,5 +1,13 @@
 # EIGen: Evolutionary Illusion Generator
 
+## Latest publication
+
+Evolutionary Generation of Visual Motion Illusions
+
+Lana Sinapayen, Eiji Watanabe
+
+https://arxiv.org/abs/2112.13243
+
 ## Acknowledgments
 
 This tool relies on a cost function derived from a model built fron the architecture of W. Lotter and al. (https://coxlab.github.io/prednet/), model implemented, improved and trained by E. Watanabe (https://github.com/eijwat/Predictive_Coding_Deep_Neural_Networks, https://www.frontiersin.org/articles/10.3389/fpsyg.2018.00345/full); on the pyTorch implementation of Ken Stanley's NEAT (https://github.com/uber-research/PyTorch-NEAT); and on useful blog posts by David Ha about graphics generation (https://blog.otoro.net/2016/03/25/generating-abstract-patterns-with-tensorflow/)
