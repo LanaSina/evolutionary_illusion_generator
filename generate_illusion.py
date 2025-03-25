@@ -587,6 +587,9 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
 
             if direction < 0:
                 theta = - theta
+                # also invert R
+                r = r_total-r
+
 
         # keep some white space
         if (r > 0.9) or (r < 0.1):
@@ -1111,7 +1114,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         i = i + 1
 
     # save best illusion
-    print("best", image_name, best_illusion)
+    print("best", best_score, image_name, best_illusion)
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
     move_to_name = best_dir + "/best.png"
     shutil.copy(image_name, move_to_name)
@@ -1172,7 +1175,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels
     p.add_reporter(checkpointer)
 
     # Run for up to x generations.
-    winner = p.run(eval_genomes, 300)
+    winner = p.run(eval_genomes, 100)
 
 
 def string_to_intarray(string_input):
