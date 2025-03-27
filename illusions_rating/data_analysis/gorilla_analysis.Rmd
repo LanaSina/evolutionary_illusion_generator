@@ -35,6 +35,8 @@ file_path = files_list[1]
 df = read.csv(file_path, stringsAsFactors=F)
 
 strength = gsub('0: no motion', '0', df[-1,33])
+strength = gsub('5: a strong motion', '5', strength)
+
 illusion_name = df[-1,27]
 
 results = data.frame(illusion_name, strength)
@@ -55,7 +57,10 @@ for (file_path in files_list[-1]){
      & df[2,27] != "Experiment Description"
      & df[2,27] != "Instructions"
      ){
+    
     strength = gsub('0: no motion', '0', df[-1,33])
+    strength = gsub('5: a strong motion', '5', strength)
+    
     illusion_name = df[-1,27]
     temp = data.frame(illusion_name, strength)
     results = rbind(results, temp)
@@ -65,10 +70,37 @@ for (file_path in files_list[-1]){
 
 # remove empty raws
 results = results[!apply(results == "", 1, all),]
-
 ```
 
 
+```{r}
+# assign id to illusion
+ids <- data.frame(unique(results$illusion_name), c(1:length(unique(results$illusion_name))))
+colnames(ids) = c("illusion_name", "illusion_id")
+
+results$illusion_id <- ids$illusion_id[match(results$illusion_name, ids$illusion_name)]
+
+plot(results$illusion_id, results$strength, xaxt="n")
+axis(side = 1, at = 1:length(ids$illusion_id), labels = ids$illusion_name)
+```
+
+```{r}
+
+averages = c()
+for (id in unique(ids$illusion_id)){
+  sub = subset(results, illusion_id == id)
+  averages = c(averages, mean(as.numeric(sub$strength)))
+}
+
+ill_ave = data.frame(unique(ids$illusion_id), unique(ids$illusion_name), averages)
+colnames(ill_ave) = c("id", "name", "mean_strength")
+
+```
+
+```{r}
+plot(ill_ave$id, ill_ave$mean_strength, xaxt="n")
+axis(side = 1, at = 1:length(ill_ave$name), labels = ill_ave$name)
+```
 
 
 Paste without NA
