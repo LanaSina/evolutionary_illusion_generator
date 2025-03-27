@@ -98,7 +98,7 @@ colnames(ill_ave) = c("id", "name", "mean_strength")
 ```
 
 ```{r}
-plot(ill_ave$id, ill_ave$mean_strength, xaxt="n")
+plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), xlab = "Illusion", ylab = "Strength")
 axis(side = 1, at = 1:length(ill_ave$name), labels = ill_ave$name)
 ```
 
