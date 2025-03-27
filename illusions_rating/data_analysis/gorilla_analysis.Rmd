@@ -1,0 +1,129 @@
+---
+title: "gorilla_analysis"
+author: "Lana"
+date: '2023-04-04'
+output: html_document
+---
+
+```{r}
+base_path = "../gorilla_data/"
+sub_folder = "book/data_exp_88447-v16/"
+
+```
+
+list all data files
+```{r}
+dir_path = paste(base_path, sub_folder, sep="")
+
+dir_list = list.files(path = dir_path)
+files_list = c()
+
+for (dir in dir_list){
+  final_dir_path = paste(dir_path, dir, sep="")
+  # temp_list = list.files(path = final_dir_path)
+  # files_list = c(files_list, paste(final_dir_path, temp_list, sep="/"))
+  files_list = c(files_list, final_dir_path)
+}
+
+print(files_list)
+# remove different ones
+```
+
+Paste without NA
+useless
+
+```{r}
+paste5 <- function(..., sep = " ", collapse = NULL, na.rm = F) {
+  if (na.rm == F)
+    paste(..., sep = sep, collapse = collapse)
+  else
+    if (na.rm == T) {
+      paste.na <- function(x, sep) {
+        x <- gsub("^\\s+|\\s+$", "", x)
+        ret <- paste(x[!is.na(x) & !(x %in% "")], collapse = sep)
+        is.na(ret) <- ret == ""
+        return(ret)
+      }
+      df <- data.frame(..., stringsAsFactors = F)
+      ret <- apply(df, 1, FUN = function(x) paste.na(x, sep))
+
+      if (is.null(collapse))
+        ret
+      else {
+        paste.na(ret, sep = collapse)
+      }
+    }
+}
+```
+
+Read all files
+
+```{r}
+
+result_columns = c("participant_id", "task", "illusion", "motion_type", "strength")
+results = data.frame(matrix(nrow = 0, ncol = length(result_columns))) 
+colnames(results) = result_columns
+value_true = 1
+  
+for (file_path in files_list){
+  df = read.csv(file_path, stringsAsFactors=F)
+  
+  # merge motion columns
+  df['motion_type'] = paste(df$motion.type.1, df$motion.type.2, df$motion.type.3, df$motion.type.text)
+
+  # data has different formats
+  columns = colnames(df)
+  if("illusory.motion" %in% columns){
+    sub = df[c("Participant.Private.ID", "Task.Name", "illusory.motion.quantised", "motion_type", "response.1.1.quantised")]
+    sub$illusory.motion.quantised = c(df["illusory.motion.quantised"] == value_true)
+    colnames(sub) = result_columns
+
+    sub = subset(sub, task!="")
+    # TODO deal with 3rd format issue here
+    if (length(sub[,1])>0 & sub[1,1]!=""){
+      results = rbind(results, sub)
+    }
+    
+  } 
+}
+
+colnames(results) = result_columns
+print(results)
+
+tasks = unique(results$task)
+for (t in tasks){
+  sub = subset(results, task==t)
+  print(sub)
+}
+```
+
+```{r}
+print(results)
+
+# average strength for each task
+columns = c("illusion", "strength") 
+ratings = data.frame(matrix(nrow = 0, ncol = length(columns))) 
+colnames(ratings) = columns
+
+for (t in unique(results$task)){
+  sub = subset(results, task==t)
+  strength = mean(sub$strength)
+  ratings = rbind(ratings, c(t, strength))
+}
+
+colnames(ratings) = columns
+print(ratings[order(ratings$strength, decreasing=TRUE),])
+
+# plot each participant
+
+for (p in unique(results$participant_id)){
+  sub = subset(results, participant_id==p)
+  plot(sub$strength, xaxt = "n", xlab = "")
+  axis(1, at = c(1: length(sub$task)),
+     labels = sub$task, las = 2
+     )
+}
+
+```
+
+
