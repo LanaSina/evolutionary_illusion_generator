@@ -6,14 +6,13 @@ output: html_document
 ---
 
 ```{r}
-base_path = "../gorilla_data/"
-sub_folder = "book/data_exp_88447-v16/"
+dir_path = "../gorilla_data/2025/data_exp_88447-v23/"
 
 ```
 
 list all data files
 ```{r}
-dir_path = paste(base_path, sub_folder, sep="")
+# dir_path = paste(base_path, sub_folder, sep="")
 
 dir_list = list.files(path = dir_path)
 files_list = c()
@@ -28,6 +27,49 @@ for (dir in dir_list){
 print(files_list)
 # remove different ones
 ```
+
+Give up whole analysis, just look at strength
+
+```{r}
+file_path = files_list[1]
+df = read.csv(file_path, stringsAsFactors=F)
+
+strength = gsub('0: no motion', '0', df[-1,33])
+illusion_name = df[-1,27]
+
+results = data.frame(illusion_name, strength)
+
+# plot(results$strength)
+
+```
+
+
+```{r}
+for (file_path in files_list[-1]){
+  df = read.csv(file_path, stringsAsFactors=F)
+  
+  # todo use not n
+  if(df[2,27] != "Bot Checks: Visual Search" 
+     & df[2,27] != "Instructional Manipulation"
+     & df[2,27] != "Consent"
+     & df[2,27] != "Experiment Description"
+     & df[2,27] != "Instructions"
+     ){
+    strength = gsub('0: no motion', '0', df[-1,33])
+    illusion_name = df[-1,27]
+    temp = data.frame(illusion_name, strength)
+    results = rbind(results, temp)
+  }
+
+}
+
+# remove empty raws
+results = results[!apply(results == "", 1, all),]
+
+```
+
+
+
 
 Paste without NA
 useless
@@ -64,12 +106,22 @@ result_columns = c("participant_id", "task", "illusion", "motion_type", "strengt
 results = data.frame(matrix(nrow = 0, ncol = length(result_columns))) 
 colnames(results) = result_columns
 value_true = 1
+
+motion_type_cols = c()
   
 for (file_path in files_list){
   df = read.csv(file_path, stringsAsFactors=F)
   
-  # merge motion columns
-  df['motion_type'] = paste(df$motion.type.1, df$motion.type.2, df$motion.type.3, df$motion.type.text)
+  if (length(motion_type_cols)==0){
+    for (col in colnames(df)){
+      if (grepl("motion.type.object.4", col, fixed = TRUE)){
+        motion_type_cols = c(motion_type_cols, col)
+      }
+    }
+  }
+  
+  # merge motion columns but skip header
+  df['motion_type'] = paste(df[motion_type_cols][-1,])
 
   # data has different formats
   columns = colnames(df)
