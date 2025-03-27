@@ -6,15 +6,12 @@ output: html_document
 ---
 
 ```{r}
-base_path = "../gorilla_data/"
-sub_folder = "tests/20230404/"
+dir_path = "gorilla_data/"
 
 ```
 
 list all data files
 ```{r}
-dir_path = paste(base_path, sub_folder, sep="")
-
 dir_list = list.files(path = dir_path)
 files_list = c()
 
@@ -25,6 +22,26 @@ for (dir in dir_list){
 }
 
 ```
+
+
+Find correct number of columns
+```{r}
+file_path = files_list[2]
+df = read.csv(file_path, stringsAsFactors=F)
+columns = colnames(df)
+
+df[,27:39]
+```
+
+```{r}
+# for illusion tasks
+selected_columns_ids = c(27, 30, 33, 35, 36, 37, 38)
+df[c(1,2),selected_columns_ids]
+
+# for attention checks
+
+```
+
 
 Read all files
 
