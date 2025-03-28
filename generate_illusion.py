@@ -1113,6 +1113,24 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             best_illusion = i
             best_score = scores[i][1]
             best_genome = genome
+        # if (scores[i][1]==0):
+        #     # save a control
+        #     print("0 fitness", i)
+        #     image_name = output_dir + "/images/" + str(i).zfill(10) + ".png"
+        #     move_to_name = best_dir + "/0-fitness.png"
+        #     shutil.copy(image_name, move_to_name)
+        #     index = int(i * (repeat / skip) + repeat - 1)
+        #     image_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
+        #     move_to_name = best_dir + "/0-fitness_flow.png"
+        #     shutil.copy(image_name, move_to_name)
+        #     # create enhanced image
+        #     e_w = 800
+        #     e_h = 800
+        #     e_grid = enhanced_image_grid(e_w, e_h, structure)
+        #     image = get_image_from_cppn(e_grid, population[i][1], c_dim, e_w, e_h, config, bg=1, gradient=gradient)
+        #     image_name = best_dir + "/0-fitness_enhanced.png"
+        #     image.save(image_name)
+
         i = i + 1
 
     # save best illusion
