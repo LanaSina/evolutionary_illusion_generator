@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r}
-dir_path = "../gorilla_data/2025/data_exp_88447-v23/"
+dir_path = "../gorilla_data/data_exp_88447-v25/"
 
 ```
 
@@ -80,8 +80,8 @@ colnames(ids) = c("illusion_name", "illusion_id")
 
 results$illusion_id <- ids$illusion_id[match(results$illusion_name, ids$illusion_name)]
 
-plot(results$illusion_id, results$strength, xaxt="n")
-axis(side = 1, at = 1:length(ids$illusion_id), labels = ids$illusion_name)
+# plot(results$illusion_id, results$strength, xaxt="n")
+# axis(side = 1, at = 1:length(ids$illusion_id), labels = ids$illusion_name)
 ```
 
 ```{r}
