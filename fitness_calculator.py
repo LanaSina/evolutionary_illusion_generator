@@ -4,6 +4,13 @@ from optical_flow.optical_flow import lucas_kanade, draw_tracks, save_data
 from chainer_prednet.PredNet.call_prednet import test_prednet
 from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 
+class StructureType(IntEnum):
+    Bands = 0
+    Circles = 1
+    Free = 2
+    CirclesFree = 3
+    # Circles5Colors = 4
+
 # returns ratio and vectors that are not unplausibly big
 def plausibility_ratio(vectors, limit):
     r = []
@@ -489,3 +496,51 @@ def get_vectors(image_path, model_name, w, h):
         vectors = np.asarray(results["vectors"])
 
     return vectors
+
+
+def calculate_fitness(structure, vectors):
+   
+    if structure == StructureType.Bands:
+        ratio = plausibility_ratio(original_vectors[index], 0.15)
+        score_0 = ratio[0]
+        good_vectors = ratio[1]
+
+        if (len(good_vectors) > 0):
+            stripes = 4
+            step = h / stripes
+            score_direction = horizontal_symmetry_score(good_vectors, [0, step * 2])
+
+            # bonus for strength
+            score_d = score_direction  # *min(1,score_strength)
+
+    elif structure == StructureType.Circles \
+            or structure == StructureType.CirclesFree \
+            or structure == StructureType.Circles5Colors:
+        max_strength = 0.3  # 0.4
+        ratio = plausibility_ratio(original_vectors[index], max_strength)
+        score_0 = ratio[0]
+        good_vectors = ratio[1]
+        min_vectors = ((2 * math.pi) / (math.pi / 4.0)) * 3
+
+        if (len(good_vectors) > min_vectors):
+            # get tangent scores
+            limits = [0, h / 2]
+            score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
+            score_strength = strength_number(good_vectors, max_strength)
+            score_d = 0.7 * score_direction + 0.3 * score_strength
+
+    elif structure == StructureType.Free:
+        max_strength = 0.4
+        ratio = plausibility_ratio(original_vectors[index], max_strength)
+        good_vectors = ratio[1]
+
+        if (len(good_vectors) > 0):
+            score_strength = strength_number(good_vectors, max_strength)
+            score_number = min(len(good_vectors), 15) / 15
+            score_s = swarm_score(good_vectors)
+            score_d = 0.5 * score_s + 0.1 * score_strength + 0.4 * score_number
+    else:
+        score_d = inside_outside_score(good_vectors, w, h)
+
+    return score_d
+
