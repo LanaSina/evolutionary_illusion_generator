@@ -18,7 +18,7 @@ from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
 from random import random, randrange
 import shutil
 import torch
-import fitness_calculator
+from fitness_calculator import *
 
 
 # TODO enumerate illusion types
