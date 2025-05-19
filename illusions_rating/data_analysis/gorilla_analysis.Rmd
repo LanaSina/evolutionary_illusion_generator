@@ -68,7 +68,7 @@ for (file_path in files_list[-1]){
 
 }
 
-# remove empty raws
+# remove empty rows
 results = results[!apply(results == "", 1, all),]
 ```
 
@@ -102,6 +102,45 @@ plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), xlab = "Illusi
 axis(side = 1, at = 1:length(ill_ave$name), labels = ill_ave$name)
 ```
 
+Read comments
+
+```{r}
+file_path = files_list[9]
+df = read.csv(file_path, stringsAsFactors=F)
+# 
+# strength = gsub('0: no motion', '0', df[-1,32])
+# strength = gsub('5: a strong motion', '5', strength)
+# 
+# illusion_name = df[-1,27]
+# 
+# type_results = data.frame(illusion_name, strength)
+
+comments_results = c()
+
+for (file_path in files_list){
+  df = read.csv(file_path, stringsAsFactors=F)
+  
+  # todo use not n
+  if(df[2,27] != "Bot Checks: Visual Search" 
+     & df[2,27] != "Instructional Manipulation"
+     & df[2,27] != "Consent"
+     & df[2,27] != "Experiment Description"
+     & df[2,27] != "Instructions"
+     ){
+    
+    comments = df[-1,32]
+    comments = comments[nzchar(comments)]
+    comments_results = c(comments_results, comments)
+  }
+
+}
+
+
+comments_results
+```
+
+
+----
 
 Paste without NA
 useless
