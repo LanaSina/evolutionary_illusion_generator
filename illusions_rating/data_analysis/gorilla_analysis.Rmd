@@ -105,7 +105,7 @@ axis(side = 1, at = 1:length(ill_ave$name), labels = ill_ave$name)
 Read comments
 
 ```{r}
-file_path = files_list[9]
+file_path = files_list[15]
 df = read.csv(file_path, stringsAsFactors=F)
 # 
 # strength = gsub('0: no motion', '0', df[-1,32])
