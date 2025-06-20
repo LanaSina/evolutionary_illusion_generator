@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r}
-dir_path = "../gorilla_data/data_exp_88447-v25/"
+dir_path = "../gorilla_data/2025/data_exp_88447-v25/"
 
 ```
 
@@ -101,6 +101,27 @@ colnames(ill_ave) = c("id", "name", "mean_strength")
 plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), xlab = "Illusion", ylab = "Strength")
 axis(side = 1, at = 1:length(ill_ave$name), labels = ill_ave$name)
 ```
+
+Read data from EIGen own evaluation
+
+```{r}
+file_path = "../gorilla_data/2025/eigen_own_ratings.csv"
+own_ratings = read.csv(file_path, stringsAsFactors=F)
+all_ratings = merge(ill_ave, own_ratings[,c("gorilla_name","score")], by.x='name', by.y='gorilla_name')
+
+all_ratings = all_ratings[order(all_ratings$id), ]
+```
+
+
+```{r}
+plot(all_ratings$id, all_ratings$mean_strength/5, 
+     ylim = c(0,1), type = "l", col = "blue", xaxt="n", 
+     xlab = "Illusion", ylab = "Strength")
+points(all_ratings$id, all_ratings$score, type = "l", col = "red")
+axis(side = 1, at = 1:length(all_ratings$name), labels = all_ratings$name)
+
+```
+
 
 Read comments
 

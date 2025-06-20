@@ -1,0 +1,11 @@
+image_id,gorilla_name,file,score
+0,01_bw_rotating,rotate_01,0.818
+1,02_bw_rotating,rotate_01,0.807
+2,e_fraserwilcox_updated,0,0
+3,03_bw_shrink,expand_01,0.802
+4,04_bw_shrink,expand_02,0.817
+5,05_color_shrink,color_01_expand,0.804
+6,06_color_shrink,color_02_expand,0.815
+7,07_medaka,manyfish,0.650
+8,08_control,control,0
+9,e_rotating-snakes_updated,0,0.717
