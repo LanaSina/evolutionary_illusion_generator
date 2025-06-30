@@ -24,9 +24,136 @@ for (dir in dir_list){
   files_list = c(files_list, final_dir_path)
 }
 
-print(files_list)
-# remove different ones
+# print(files_list)
 ```
+# read
+
+
+```{r}
+# data_exp_88447-v25_questionnaire-4wvg.csv
+# file_path = files_list[3]
+# df = read.csv(file_path, stringsAsFactors=F)
+```
+
+
+```{r}
+results = data.frame()
+
+for (file_path in files_list){ # [-1]
+  df = read.csv(file_path, stringsAsFactors=F)
+  
+  # todo use not n
+  if(df[2,27] != "Bot Checks: Visual Search" 
+     & df[2,27] != "Instructional Manipulation"
+     & df[2,27] != "Consent"
+     & df[2,27] != "Experiment Description"
+     & df[2,27] != "Instructions"
+     ){
+    
+    strength = gsub('0: no motion', '0', df[-1,33])
+    strength = gsub('5: a strong motion', '5', strength)
+    
+    illusion_name = df[-1,27]
+    temp = data.frame(illusion_name, strength, df$Participant.External.Session.ID[-1])
+    colnames(temp) = c("illusion_name", "strength", "participant_id")
+    results = rbind(results, temp)
+  }
+
+}
+
+# remove empty rows
+results = results[!apply(results == "", 1, all),]
+# convert char to int
+results$strength = as.integer(results$strength)
+```
+
+
+```{r}
+# assign id to illusion
+ids <- data.frame(unique(results$illusion_name), c(1:length(unique(results$illusion_name))))
+colnames(ids) = c("illusion_name", "illusion_id")
+
+results$illusion_id <- ids$illusion_id[match(results$illusion_name, ids$illusion_name)]
+
+pretty_names = c("Fraser Wilcox", "AI Color Radial 1", "AI b/w Radial 1", "AI Medaka",
+                 "AI b/w Rotating 1", "AI b/w Rotating 2", "AI Control", "AI Color Radial 2", 
+                 "Rotating Snakes", "AI b/w Radial 2"
+                 )
+```
+
+Plot histograms
+
+```{r}
+# Humans 1st, then bw ai, then color, then special
+id_order = c(1, 9, 5, 6, 3, 10, 2, 8, 4, 7)
+
+par(mfrow = c(2, 5))
+
+for (id in id_order) {
+  sub = subset(results, results$illusion_id == id)
+  hist(sub$strength, main=pretty_names[id], 
+       xlab = "Strength", ylim = c(0,200)
+       )
+}
+
+```
+
+Normalize answers
+
+```{r}
+results$normalized = 0
+
+participant_ids = unique(results$participant_id)
+p1 = subset(results, results$participant_id == participant_ids[1])
+hist(p1$strength) 
+
+p2 = subset(results, results$participant_id == participant_ids[2])
+hist(p2$strength) 
+
+for (p_id in participant_ids){
+  p = subset(results, results$participant_id == p_id)
+  # normalize
+  r = max(p$strength) - min(p$strength)
+  normalized = results$strength[results$participant_id==p_id]
+  normalized = (normalized -  min(p$strength))/r
+  
+  results$normalized[results$participant_id==p_id] = normalized
+}
+
+# then we should crop to 3
+```
+
+```{r}
+# Humans 1st, then bw ai, then color, then special
+id_order = c(1, 9, 5, 6, 3, 10, 2, 8, 4, 7)
+
+par(mfrow = c(2, 5))
+
+for (id in id_order) {
+  sub = subset(results, results$illusion_id == id)
+  hist(sub$normalized, main=pretty_names[id], 
+       xlab = "Normalized Strength", ylim = c(0,300)
+       )
+}
+
+```
+
+Bin by 3 for readability
+
+```{r}
+par(mfrow = c(2, 5))
+
+for (id in id_order) {
+  sub = subset(results, results$illusion_id == id)
+  hist(sub$normalized, main=pretty_names[id], 
+       xlab = "Normalized Strength", ylim = c(0,300),
+       breaks = seq(0, 1, length.out = 4)
+       )
+}
+
+```
+
+
 
 Look at strength
 
@@ -67,46 +194,6 @@ plot(df$Reaction.Time) # who are these people taking 1min to click on a cat
 ```
 
 
-```{r}
-# data_exp_88447-v25_questionnaire-4wvg.csv
-file_path = files_list[3]
-df = read.csv(file_path, stringsAsFactors=F)
-# all answers correct
-```
-
-
-```{r}
-results = data.frame()
-
-for (file_path in files_list[-1]){
-  df = read.csv(file_path, stringsAsFactors=F)
-  
-  # todo use not n
-  if(df[2,27] != "Bot Checks: Visual Search" 
-     & df[2,27] != "Instructional Manipulation"
-     & df[2,27] != "Consent"
-     & df[2,27] != "Experiment Description"
-     & df[2,27] != "Instructions"
-     ){
-    
-    strength = gsub('0: no motion', '0', df[-1,33])
-    strength = gsub('5: a strong motion', '5', strength)
-    
-    illusion_name = df[-1,27]
-    temp = data.frame(illusion_name, strength, df$Participant.External.Session.ID[-1])
-    colnames(temp) = c("illusion_name", "strength", "participant_id")
-    results = rbind(results, temp)
-  }
-
-}
-
-# remove empty rows
-results = results[!apply(results == "", 1, all),]
-# convert char to int
-results$strength = as.integer(results$strength)
-```
-
-
 Check reaction times
 
 ```{r}
@@ -122,42 +209,12 @@ outliers =  subset(results, results$participant_id %in% sub$participant_id)
 ```
 
 
-```{r}
-# assign id to illusion
-ids <- data.frame(unique(results$illusion_name), c(1:length(unique(results$illusion_name))))
-colnames(ids) = c("illusion_name", "illusion_id")
-
-results$illusion_id <- ids$illusion_id[match(results$illusion_name, ids$illusion_name)]
-
-pretty_names = c("Fraser Wilcox", "AI Color Radial 1", "AI b/w Radial 1", "AI Medaka",
-                 "AI b/w Rotating 1", "AI b/w Rotating 2", "AI Control", "AI Color Radial 2", 
-                 "Rotating Snakes", "AI b/w Radial 2"
-                 )
-```
-
-Plot histograms
-
-```{r}
-# Humans 1st, then bw ai, then color, then special
-id_order = c(1, 9, 5, 6, 3, 10, 2, 8, 4, 7)
-
-par(mfrow = c(2, 5))
-
-for (id in id_order) {
-  sub = subset(results, results$illusion_id == id)
-  hist(sub$strength, main=pretty_names[id], 
-       xlab = "Strength", ylim = c(0,200)
-       )
-}
-
-```
-
 Plot summary
 
 
 
 
-Plot averages
+Calculate me
 
 ```{r}
 
@@ -177,6 +234,7 @@ colnames(ill_ave) = c("id", "name", "mean_strength", "median_strength", "sd")
 
 ```
 
+Average and median
 ```{r}
 n = length(ill_ave$name)
 plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), 
@@ -187,6 +245,9 @@ points(ill_ave$id, ill_ave$median_strength, col = "grey")
 axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
 axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
 ```
+
+Median of normalized, with errors
+
 ```{r}
 # median with sd 
 n = length(ill_ave$name)
@@ -201,18 +262,6 @@ axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj 
 ```
 
 
-```{r}
-n = length(ill_ave$name)
-plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), 
-     xlab = "", ylab = "Median Strength")
-# error bars: we draw arrows but with very special "arrowheads"
-arrows(ill_ave$id, ill_ave$mean_strength-ill_ave$sd,
-       ill_ave$id, ill_ave$mean_strength+ill_ave$sd, length=0.05, angle=90, code=3)
-
-axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
-axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
-```
-
 
 
 Read data from EIGen own evaluation
@@ -224,6 +273,20 @@ all_ratings = merge(ill_ave, own_ratings[,c("gorilla_name","score")], by.x='name
 
 all_ratings = all_ratings[order(all_ratings$id), ]
 ```
+
+
+```{r}
+plot(all_ratings$id, all_ratings$median_strength/5, 
+     ylim = c(0,1), type = "l", col = "blue", xaxt="n", 
+     xlab = "", ylab = "Median Strength")
+points(all_ratings$id, all_ratings$score, type = "l", col = "red")
+
+axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
+axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
+
+```
+
+Plot normalized data
 
 
 ```{r}
