@@ -104,20 +104,18 @@ Normalize answers
 results$normalized = 0
 
 participant_ids = unique(results$participant_id)
-p1 = subset(results, results$participant_id == participant_ids[1])
-hist(p1$strength) 
-
-p2 = subset(results, results$participant_id == participant_ids[2])
-hist(p2$strength) 
 
 for (p_id in participant_ids){
   p = subset(results, results$participant_id == p_id)
   # normalize
   r = max(p$strength) - min(p$strength)
-  normalized = results$strength[results$participant_id==p_id]
-  normalized = (normalized -  min(p$strength))/r
-  
-  results$normalized[results$participant_id==p_id] = normalized
+  normalized = results$strength[results$participant_id == p_id]
+  if(r != 0){
+    normalized = (normalized -  min(p$strength))/r
+    results$normalized[results$participant_id==p_id] = normalized
+  } else {
+    print(max(p$strength))
+  }
 }
 
 # then we should crop to 3
@@ -214,7 +212,7 @@ Plot summary
 
 
 
-Calculate me
+Calculate median with normalized values
 
 ```{r}
 
@@ -225,8 +223,8 @@ for (id in unique(ids$illusion_id)){
   sub = subset(results, illusion_id == id)
   
   averages = c(averages, mean(sub$strength))
-  median = c(median, median(sub$strength))
-  sd = c(sd, sd(sub$strength))
+  median = c(median, median(sub$normalized))
+  sd = c(sd, sd(sub$normalized))
 }
 
 ill_ave = data.frame(unique(ids$illusion_id), unique(ids$illusion_name), averages, median, sd)
@@ -239,7 +237,9 @@ Average and median
 n = length(ill_ave$name)
 plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), 
      xlab = "", ylab = "Strength")
-points(ill_ave$id, ill_ave$median_strength, col = "grey")
+
+
+points(ill_ave$id, ill_ave$median_strength*5, col = "grey")
 # axis(side = 1, at = 1:n, labels = pretty_names, srt = 35)# las = 2) # srt = 35
 
 axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
@@ -249,19 +249,32 @@ axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj 
 Median of normalized, with errors
 
 ```{r}
+
+id_order = c(1, 9, 5, 6, 3, 10, 2, 8, 4, 7)
+
 # median with sd 
 n = length(ill_ave$name)
-plot(ill_ave$id, ill_ave$median_strength, xaxt="n", ylim = c(0, 5), 
-     xlab = "", ylab = "Median Strength")
-# error bars: we draw arrows but with very special "arrowheads"
-arrows(ill_ave$id, ill_ave$median_strength-ill_ave$sd,
-       ill_ave$id, ill_ave$median_strength+ill_ave$sd, length=0.05, angle=90, code=3)
 
-axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
-axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
+# plot(all_ratings$id[id_order], all_ratings$score[id_order], pch=20, col = "red", ylim = c(-0.5, 1.5), 
+#      xlab = "", ylab = "Median Strength", xaxt="n")
+plot(all_ratings$score[id_order], pch=20, col = "red", ylim = c(-0.5, 1.5), 
+     xlab = "", ylab = "Median Strength", xaxt="n")
+points(ill_ave$median_strength[id_order])
+# error bars: we draw arrows but with very special "arrowheads"
+arrows(ill_ave$id, ill_ave$median_strength[id_order]-ill_ave$sd[id_order],
+       ill_ave$id, ill_ave$median_strength[id_order]+ill_ave$sd[id_order], length=0.05, angle=90, code=3)
+
+axis(side=1, at=seq(1,n,2), labels=pretty_names[id_order][seq(1,n,2)], cex.axis=0.8, padj = -0.9)
+axis(side=1, at=seq(2,n,2), labels=pretty_names[id_order][seq(2,n,2)], cex.axis=0.8, padj = 0.9)
+
+
 ```
 
+Plot bw separate from color
 
+```{r}
+
+```
 
 
 Read data from EIGen own evaluation
@@ -276,8 +289,8 @@ all_ratings = all_ratings[order(all_ratings$id), ]
 
 
 ```{r}
-plot(all_ratings$id, all_ratings$median_strength/5, 
-     ylim = c(0,1), type = "l", col = "blue", xaxt="n", 
+plot(all_ratings$id, all_ratings$median_strength, 
+     ylim = c(0,2), type = "l", col = "blue", xaxt="n", 
      xlab = "", ylab = "Median Strength")
 points(all_ratings$id, all_ratings$score, type = "l", col = "red")
 
