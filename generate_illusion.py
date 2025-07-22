@@ -27,7 +27,7 @@ class StructureType(IntEnum):
     Circles = 1
     Free = 2
     CirclesFree = 3
-    # Circles5Colors = 4
+    Circles5Colors = 4
 
 
 # todo: use in get_grid
@@ -624,7 +624,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     best_genome = None
     for genome_id, genome in population:
         genome.fitness = scores[i][1]
-        if (scores[i][1] > best_score):
+        if (scores[i][1] >= best_score):
             best_illusion = i
             best_score = scores[i][1]
             best_genome = genome

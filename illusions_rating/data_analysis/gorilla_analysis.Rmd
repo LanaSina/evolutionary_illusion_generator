@@ -270,10 +270,32 @@ axis(side=1, at=seq(2,n,2), labels=pretty_names[id_order][seq(2,n,2)], cex.axis=
 
 ```
 
-Plot bw separate from color
+
+Plot order matrix
 
 ```{r}
+plot(all_ratings$score)
+# cols = base id; row = illusions below this one
+m_eigen = matrix(0, nrow = n, ncol = n)
+m_humans = matrix(0, nrow = n, ncol = n)
 
+for (i in c(1:n)){
+  below = subset(all_ratings, score < all_ratings$score[i])
+  for (b_id in below$id){
+    m_eigen[b_id, i] = 1
+  }
+  
+  below = subset(all_ratings, all_ratings$median_strength < all_ratings$median_strength[i])
+  for (b_id in below$id){
+    m_humans[b_id, i] = 1
+  }
+}
+
+print(m_eigen)
+print(m_humans)
+print(m_eigen-m_humans)
+
+sum(abs(m_eigen[,2:n]-m_humans[,2:n]))/(9*9)
 ```
 
 
