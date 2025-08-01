@@ -26,14 +26,8 @@ for (dir in dir_list){
 
 # print(files_list)
 ```
-# read
 
-
-```{r}
-# data_exp_88447-v25_questionnaire-4wvg.csv
-# file_path = files_list[3]
-# df = read.csv(file_path, stringsAsFactors=F)
-```
+## read
 
 
 ```{r}
@@ -80,6 +74,23 @@ pretty_names = c("Fraser Wilcox", "AI Color Radial 1", "AI b/w Radial 1", "AI Me
                  "Rotating Snakes", "AI b/w Radial 2"
                  )
 ```
+
+
+Remove participant that answered "dog" on attention test
+
+```{r}
+# cat selection test
+# private_ids = c()
+# ext_ids = c()
+
+file_path = files_list[15]
+df = read.csv(file_path, stringsAsFactors=F)
+sub = subset(df, df$Response == "dog4.jpg")
+
+results = subset(results, !results$participant_id %in% sub$Participant.External.Session.ID)
+```
+
+
 
 Plot histograms
 
@@ -152,66 +163,6 @@ for (id in id_order) {
 ```
 
 
-
-Look at strength
-
-```{r}
-# file_path = files_list[1]
-# df = read.csv(file_path, stringsAsFactors=F)
-# 
-# strength = gsub('0: no motion', '0', df[-1,33])
-# strength = gsub('5: a strong motion', '5', strength)
-# 
-# illusion_name = df[-1,27]
-# 
-# results = data.frame(illusion_name, strength)
-
-# plot(results$strength)
-
-```
-
-Attention tests
-
-```{r}
-# data_exp_88447-v25_task-435e.csv"
-# cat selection test
-
-private_ids = c()
-ext_ids = c()
-
-file_path = files_list[15]
-df = read.csv(file_path, stringsAsFactors=F)
-sub = subset(df, df$Response == "dog4.jpg")
-
-# record bad participants
-private_ids = c(private_ids, sub$Participant.Private.ID)
-ext_ids = c(ext_ids, sub$Participant.External.Session.ID)
-
-plot(df$Reaction.Time) # who are these people taking 1min to click on a cat
-
-```
-
-
-Check reaction times
-
-```{r}
-plot(df$Reaction.Time)
-```
-
-
-See other answers of people who said control moves a lot
-
-```{r}
-sub = subset(results, results$illusion_name=="08_control" & strength==5)
-outliers =  subset(results, results$participant_id %in% sub$participant_id)
-```
-
-
-Plot summary
-
-
-
-
 Calculate median with normalized values
 
 ```{r}
@@ -245,6 +196,18 @@ points(ill_ave$id, ill_ave$median_strength*5, col = "grey")
 axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
 axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
 ```
+
+
+Read data from EIGen own evaluation
+
+```{r}
+file_path = "../gorilla_data/2025/eigen_own_ratings.csv"
+own_ratings = read.csv(file_path, stringsAsFactors=F)
+all_ratings = merge(ill_ave, own_ratings[,c("gorilla_name","score")], by.x='name', by.y='gorilla_name')
+
+all_ratings = all_ratings[order(all_ratings$id), ]
+```
+
 
 Median of normalized, with errors
 
@@ -299,27 +262,8 @@ sum(abs(m_eigen[,2:n]-m_humans[,2:n]))/(9*9)
 ```
 
 
-Read data from EIGen own evaluation
-
-```{r}
-file_path = "../gorilla_data/2025/eigen_own_ratings.csv"
-own_ratings = read.csv(file_path, stringsAsFactors=F)
-all_ratings = merge(ill_ave, own_ratings[,c("gorilla_name","score")], by.x='name', by.y='gorilla_name')
-
-all_ratings = all_ratings[order(all_ratings$id), ]
-```
 
 
-```{r}
-plot(all_ratings$id, all_ratings$median_strength, 
-     ylim = c(0,2), type = "l", col = "blue", xaxt="n", 
-     xlab = "", ylab = "Median Strength")
-points(all_ratings$id, all_ratings$score, type = "l", col = "red")
-
-axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
-axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
-
-```
 
 Plot normalized data
 
@@ -375,6 +319,18 @@ comments_results
 
 
 ---- deprecated
+
+
+```{r}
+plot(all_ratings$id, all_ratings$median_strength, 
+     ylim = c(0,2), type = "l", col = "blue", xaxt="n", 
+     xlab = "", ylab = "Median Strength")
+points(all_ratings$id, all_ratings$score, type = "l", col = "red")
+
+axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
+axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
+
+```
 
 Violin plot
 

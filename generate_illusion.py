@@ -27,7 +27,6 @@ class StructureType(IntEnum):
     Circles = 1
     Free = 2
     CirclesFree = 3
-    Circles5Colors = 4
 
 
 # todo: use in get_grid
@@ -239,7 +238,7 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
 
         return {"x_mat": x_mat, "y_mat": y_mat}
 
-    elif structure == StructureType.Circles or structure == StructureType.Circles5Colors:
+    elif structure == StructureType.Circles:
         r_ratios = [0.6, 0.3, 0.1]
         x_range = np.linspace(-1 * scaling, scaling, num=x_res)
         y_range = np.linspace(-1 * scaling, scaling, num=y_res)
@@ -580,8 +579,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                     score_d = score_direction  # *min(1,score_strength)
 
             elif structure == StructureType.Circles \
-                    or structure == StructureType.CirclesFree \
-                    or structure == StructureType.Circles5Colors:
+                    or structure == StructureType.CirclesFree:
                 max_strength = 0.3  # 0.4
                 ratio = plausibility_ratio(original_vectors[index], max_strength)
                 score_0 = ratio[0]
