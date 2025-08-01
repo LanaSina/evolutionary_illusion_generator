@@ -586,7 +586,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                 ratio = plausibility_ratio(original_vectors[index], max_strength)
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
-                min_vectors = ((2 * math.pi) / (math.pi / 4.0)) * 3
+                min_vectors = 24 #((2 * math.pi) / (math.pi / 4.0)) * 3
 
                 if (len(good_vectors) > min_vectors):
                     # get tangent scores

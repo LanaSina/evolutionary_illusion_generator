@@ -465,14 +465,15 @@ def tangent_ratio(vectors, w, h, limits=None):
     return [direction, abs(mean_alignment)]
 
 
-def get_vectors(image_path, model_name, w, h):
+def get_vectors(image_path, model_name, channels, w, h):
     skip = 1
     extension_duration = 2
     repeat = 20
     half_h = int(h / 2)
     size = [w, h]
-    channels = [3, 48, 96, 192]
+    c_dim = channels[0]
     gpu = 0
+
 
     output_dir = "test/"
     prediction_dir = output_dir + "/prediction/"
@@ -486,7 +487,7 @@ def get_vectors(image_path, model_name, w, h):
     test_prednet(initmodel=model_name, sequence_list=[repeated_images_list], size=size,
                  channels=channels, gpu=gpu, output_dir=prediction_dir, skip_save_frames=skip,
                  extension_start=repeat, extension_duration=extension_duration,
-                 reset_at=repeat + extension_duration, verbose=0
+                 reset_at=repeat + extension_duration, c_dim=c_dim, verbose=0
                  )
 
     extended = prediction_dir + str(repeat + 1).zfill(10) + "_extended.png"
@@ -522,7 +523,7 @@ def calculate_fitness(structure, vectors, image_path, w, h):
         ratio = plausibility_ratio(vectors, max_strength)
         score_0 = ratio[0]
         good_vectors = ratio[1]
-        min_vectors = ((2 * math.pi) / (math.pi / 4.0)) * 3
+        min_vectors = 24 #((2 * math.pi) / (math.pi / 4.0)) * 3
 
         if (len(good_vectors) > min_vectors):
             # get tangent scores
