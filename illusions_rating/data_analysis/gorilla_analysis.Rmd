@@ -48,8 +48,15 @@ for (file_path in files_list){ # [-1]
     strength = gsub('5: a strong motion', '5', strength)
     
     illusion_name = df[-1,27]
-    temp = data.frame(illusion_name, strength, df$Participant.External.Session.ID[-1])
-    colnames(temp) = c("illusion_name", "strength", "participant_id")
+    temp = data.frame(illusion_name, strength, df$Participant.External.Session.ID[-1], # NA
+                      df$motion.type.object.4.Rotating[-1], df$motion.type.object.4.Shrinking.Expanding[-1],
+                      df$motion.type.object.4.Rotating.and.Shrinking.Expanding[-1],
+                      df[,"motion.type.object.4.Other...please.specify."][-1],
+                      df$motion.type.object.4.Other[-1]
+                      )
+    colnames(temp) = c("illusion_name", "strength", "participant_id",
+                       "qual_rotate", "qual_tangent", "qual_both", "qual_other",
+                       "qual_comment")
     results = rbind(results, temp)
   }
 
@@ -155,10 +162,15 @@ par(mfrow = c(2, 5))
 for (id in id_order) {
   sub = subset(results, results$illusion_id == id)
   hist(sub$normalized, main=pretty_names[id], 
-       xlab = "Normalized Strength", ylim = c(0,300),
+       # xlab = "Normalized Strength", 
+       ylim = c(0,300),
        breaks = seq(0, 1, length.out = 4)
        )
 }
+
+title(xlab = "Normalized Strength",
+      ylab = "Frequency",
+      outer = TRUE, line = 3)
 
 ```
 
@@ -234,6 +246,57 @@ axis(side=1, at=seq(2,n,2), labels=pretty_names[id_order][seq(2,n,2)], cex.axis=
 ```
 
 
+Plot qualitative observations
+
+```{r}
+
+# remove empty rows, convert 3 cols into one
+qual = results
+qual = qual[!(qual$qual_rotate==""), ]
+qual$val = -1
+
+qual$val[qual$qual_rotate==1] = 1
+qual$val[qual$qual_tangent==1] = 2
+qual$val[qual$qual_both==1] = 3
+qual$val[qual$qual_other==1] = 4
+qual = qual[!(qual$val==-1), ]
+
+```
+
+
+
+```{r}
+eigen_predictions = c("s", "s", "s", "r", "r", "r", "-", "s", "r", "s")
+
+par(mfrow = c(2, 5))
+
+i = 0
+for (name in ids$illusion_name) {
+  i = i+1
+  sub = subset(qual, qual$illusion_name == name)
+  pretty_name = pretty_names[ids$illusion_id[ids$illusion_name == name][1]]
+  
+  hist(sub$val, main=paste0(pretty_name,", ",eigen_predictions[i]),
+       xlab = "",
+       ylim = c(0,170),
+       breaks = seq(0, 4, length.out = 5),
+       labels = c("r","s","rs","o"), xaxt='n'
+       )
+}
+
+```
+
+```{r}
+comments = results$qual_comment[results$qual_comment != ""]
+comments
+```
+
+
+
+---- deprecated
+
+
+
 Plot order matrix
 
 ```{r}
@@ -278,47 +341,6 @@ axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj 
 axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
 
 ```
-
-
-Read comments
-
-```{r}
-file_path = files_list[15]
-df = read.csv(file_path, stringsAsFactors=F)
-# 
-# strength = gsub('0: no motion', '0', df[-1,32])
-# strength = gsub('5: a strong motion', '5', strength)
-# 
-# illusion_name = df[-1,27]
-# 
-# type_results = data.frame(illusion_name, strength)
-
-comments_results = c()
-
-for (file_path in files_list){
-  df = read.csv(file_path, stringsAsFactors=F)
-  
-  # todo use not n
-  if(df[2,27] != "Bot Checks: Visual Search" 
-     & df[2,27] != "Instructional Manipulation"
-     & df[2,27] != "Consent"
-     & df[2,27] != "Experiment Description"
-     & df[2,27] != "Instructions"
-     ){
-    
-    comments = df[-1,32]
-    comments = comments[nzchar(comments)]
-    comments_results = c(comments_results, comments)
-  }
-
-}
-
-
-comments_results
-```
-
-
----- deprecated
 
 
 ```{r}
