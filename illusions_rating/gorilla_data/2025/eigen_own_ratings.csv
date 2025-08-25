@@ -1,7 +1,7 @@
 image_id,gorilla_name,file,score
 0,01_bw_rotating,rotate_01,0.818
 1,02_bw_rotating,rotate_01,0.807
-2,e_fraserwilcox_updated,0,0
+2,e_fraserwilcox_updated,0,0.41
 3,03_bw_shrink,expand_01,0.802
 4,04_bw_shrink,expand_02,0.817
 5,05_color_shrink,color_01_expand,0.804

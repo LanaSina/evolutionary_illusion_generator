@@ -24,30 +24,16 @@ for (dir in dir_list){
   files_list = c(files_list, final_dir_path)
 }
 
-print(files_list)
-# remove different ones
+# print(files_list)
 ```
 
-Give up whole analysis, just look at strength
-
-```{r}
-file_path = files_list[1]
-df = read.csv(file_path, stringsAsFactors=F)
-
-strength = gsub('0: no motion', '0', df[-1,33])
-strength = gsub('5: a strong motion', '5', strength)
-
-illusion_name = df[-1,27]
-
-results = data.frame(illusion_name, strength)
-
-# plot(results$strength)
-
-```
+## read
 
 
 ```{r}
-for (file_path in files_list[-1]){
+results = data.frame()
+
+for (file_path in files_list){ # [-1]
   df = read.csv(file_path, stringsAsFactors=F)
   
   # todo use not n
@@ -62,7 +48,15 @@ for (file_path in files_list[-1]){
     strength = gsub('5: a strong motion', '5', strength)
     
     illusion_name = df[-1,27]
-    temp = data.frame(illusion_name, strength)
+    temp = data.frame(illusion_name, strength, df$Participant.External.Session.ID[-1], # NA
+                      df$motion.type.object.4.Rotating[-1], df$motion.type.object.4.Shrinking.Expanding[-1],
+                      df$motion.type.object.4.Rotating.and.Shrinking.Expanding[-1],
+                      df[,"motion.type.object.4.Other...please.specify."][-1],
+                      df$motion.type.object.4.Other[-1]
+                      )
+    colnames(temp) = c("illusion_name", "strength", "participant_id",
+                       "qual_rotate", "qual_tangent", "qual_both", "qual_other",
+                       "qual_comment")
     results = rbind(results, temp)
   }
 
@@ -70,6 +64,8 @@ for (file_path in files_list[-1]){
 
 # remove empty rows
 results = results[!apply(results == "", 1, all),]
+# convert char to int
+results$strength = as.integer(results$strength)
 ```
 
 
@@ -80,27 +76,141 @@ colnames(ids) = c("illusion_name", "illusion_id")
 
 results$illusion_id <- ids$illusion_id[match(results$illusion_name, ids$illusion_name)]
 
-# plot(results$illusion_id, results$strength, xaxt="n")
-# axis(side = 1, at = 1:length(ids$illusion_id), labels = ids$illusion_name)
+pretty_names = c("Fraser Wilcox", "AI Color Radial 1", "AI b/w Radial 1", "AI Medaka",
+                 "AI b/w Rotating 1", "AI b/w Rotating 2", "AI Control", "AI Color Radial 2", 
+                 "Rotating Snakes", "AI b/w Radial 2"
+                 )
 ```
+
+
+Remove participant that answered "dog" on attention test
+
+```{r}
+# cat selection test
+# private_ids = c()
+# ext_ids = c()
+
+file_path = files_list[15]
+df = read.csv(file_path, stringsAsFactors=F)
+sub = subset(df, df$Response == "dog4.jpg")
+
+results = subset(results, !results$participant_id %in% sub$Participant.External.Session.ID)
+```
+
+
+
+Plot histograms
+
+```{r}
+# Humans 1st, then bw ai, then color, then special
+id_order = c(1, 9, 5, 6, 3, 10, 2, 8, 4, 7)
+
+par(mfrow = c(2, 5))
+
+for (id in id_order) {
+  sub = subset(results, results$illusion_id == id)
+  hist(sub$strength, main=pretty_names[id], 
+       xlab = "Strength", ylim = c(0,200)
+       )
+}
+
+```
+
+Normalize answers
+
+```{r}
+results$normalized = 0
+
+participant_ids = unique(results$participant_id)
+
+for (p_id in participant_ids){
+  p = subset(results, results$participant_id == p_id)
+  # normalize
+  r = max(p$strength) - min(p$strength)
+  normalized = results$strength[results$participant_id == p_id]
+  if(r != 0){
+    normalized = (normalized -  min(p$strength))/r
+    results$normalized[results$participant_id==p_id] = normalized
+  } else {
+    print(max(p$strength))
+  }
+}
+
+# then we should crop to 3
+```
+
+```{r}
+# Humans 1st, then bw ai, then color, then special
+id_order = c(1, 9, 5, 6, 3, 10, 2, 8, 4, 7)
+
+par(mfrow = c(2, 5))
+
+for (id in id_order) {
+  sub = subset(results, results$illusion_id == id)
+  hist(sub$normalized, main=pretty_names[id], 
+       xlab = "Normalized Strength", ylim = c(0,300)
+       )
+}
+
+```
+
+Bin by 3 for readability
+
+```{r}
+par(mfrow = c(2, 5))
+
+for (id in id_order) {
+  sub = subset(results, results$illusion_id == id)
+  hist(sub$normalized, main=pretty_names[id], 
+       # xlab = "Normalized Strength", 
+       ylim = c(0,300),
+       breaks = seq(0, 1, length.out = 4)
+       )
+}
+
+title(xlab = "Normalized Strength",
+      ylab = "Frequency",
+      outer = TRUE, line = 3)
+
+```
+
+
+
+
+Calculate median with normalized values
 
 ```{r}
 
 averages = c()
+median = c()
+sd = c()
 for (id in unique(ids$illusion_id)){
   sub = subset(results, illusion_id == id)
-  averages = c(averages, mean(as.numeric(sub$strength)))
+  
+  averages = c(averages, mean(sub$strength))
+  median = c(median, median(sub$normalized))
+  sd = c(sd, sd(sub$normalized))
 }
 
-ill_ave = data.frame(unique(ids$illusion_id), unique(ids$illusion_name), averages)
-colnames(ill_ave) = c("id", "name", "mean_strength")
+ill_ave = data.frame(unique(ids$illusion_id), unique(ids$illusion_name), averages, median, sd)
+colnames(ill_ave) = c("id", "name", "mean_strength", "median_strength", "sd")
 
 ```
 
+Average and median
 ```{r}
-plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), xlab = "Illusion", ylab = "Strength")
-axis(side = 1, at = 1:length(ill_ave$name), labels = ill_ave$name)
+n = length(ill_ave$name)
+plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), 
+     xlab = "", ylab = "Strength")
+
+
+points(ill_ave$id, ill_ave$median_strength*5, col = "grey")
+# axis(side = 1, at = 1:n, labels = pretty_names, srt = 35)# las = 2) # srt = 35
+
+axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
+axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
 ```
+
 
 Read data from EIGen own evaluation
 
@@ -113,55 +223,159 @@ all_ratings = all_ratings[order(all_ratings$id), ]
 ```
 
 
+Median of normalized, with errors
+
 ```{r}
-plot(all_ratings$id, all_ratings$mean_strength/5, 
-     ylim = c(0,1), type = "l", col = "blue", xaxt="n", 
-     xlab = "Illusion", ylab = "Strength")
-points(all_ratings$id, all_ratings$score, type = "l", col = "red")
-axis(side = 1, at = 1:length(all_ratings$name), labels = all_ratings$name)
+
+id_order = c(1, 9, 5, 6, 3, 10, 2, 8, 4, 7)
+
+# median with sd 
+n = length(ill_ave$name)
+
+# plot(all_ratings$id[id_order], all_ratings$score[id_order], pch=20, col = "red", ylim = c(-0.5, 1.5), 
+#      xlab = "", ylab = "Median Strength", xaxt="n")
+plot(all_ratings$score[id_order], pch=20, col = "red", ylim = c(-0.5, 1.5), 
+     xlab = "", ylab = "Median Strength", xaxt="n", axes=FALSE)
+abline(h = 0, col="grey")
+  axis(side=2, at=c(-0.25,0,0.5,1))
+points(ill_ave$median_strength[id_order])
+
+# error bars: we draw arrows but with very special "arrowheads"
+arrows(ill_ave$id, ill_ave$median_strength[id_order]-ill_ave$sd[id_order],
+       ill_ave$id, ill_ave$median_strength[id_order]+ill_ave$sd[id_order], length=0.05, angle=90, code=3)
+
+axis(side=1, at=seq(1,n,2), labels=pretty_names[id_order][seq(1,n,2)], cex.axis=0.8, padj = -0.9)
+axis(side=1, at=seq(2,n,2), labels=pretty_names[id_order][seq(2,n,2)], cex.axis=0.8, padj = 0.9)
+
 
 ```
 
 
-Read comments
+Plot qualitative observations
 
 ```{r}
-file_path = files_list[15]
-df = read.csv(file_path, stringsAsFactors=F)
-# 
-# strength = gsub('0: no motion', '0', df[-1,32])
-# strength = gsub('5: a strong motion', '5', strength)
-# 
-# illusion_name = df[-1,27]
-# 
-# type_results = data.frame(illusion_name, strength)
 
-comments_results = c()
+# remove empty rows, convert 3 cols into one
+qual = results
+qual = qual[!(qual$qual_rotate==""), ]
+qual$val = -1
 
-for (file_path in files_list){
-  df = read.csv(file_path, stringsAsFactors=F)
-  
-  # todo use not n
-  if(df[2,27] != "Bot Checks: Visual Search" 
-     & df[2,27] != "Instructional Manipulation"
-     & df[2,27] != "Consent"
-     & df[2,27] != "Experiment Description"
-     & df[2,27] != "Instructions"
-     ){
-    
-    comments = df[-1,32]
-    comments = comments[nzchar(comments)]
-    comments_results = c(comments_results, comments)
-  }
+qual$val[qual$qual_rotate==1] = 1
+qual$val[qual$qual_tangent==1] = 2
+qual$val[qual$qual_both==1] = 3
+qual$val[qual$qual_other==1] = 4
+qual = qual[!(qual$val==-1), ]
+qual$illusion_id = -1
 
+for (i in c(1,length(ids$illusion_name))) {
+  qual$illusion_id[qual$illusion_name== ids$illusion_name[i]] = ids$illusion_id[i]
 }
 
-
-comments_results
 ```
 
 
-----
+
+```{r}
+eigen_predictions = c("s", "s", "s", "r", "r", "r", "-", "s", "r", "s")
+
+par(mfrow = c(2, 5))
+
+i = 0
+for (id in id_order) {
+# for (name in ids$illusion_name) {
+  name = ids$illusion_name[id]
+  i = i+1
+  sub = subset(qual, qual$illusion_name == name)
+  pretty_name = pretty_names[id]
+  
+  hist(sub$val, main=paste0(pretty_name,", ",eigen_predictions[id]),
+       xlab = "",
+       ylim = c(0,170),
+       breaks = seq(0, 4, length.out = 5),
+       labels = c("r","s","rs","o"), xaxt='n'
+       )
+}
+
+```
+
+```{r}
+comments = results$qual_comment[results$qual_comment != ""]
+comments
+```
+
+
+
+---- deprecated
+
+
+
+Plot order matrix
+
+```{r}
+plot(all_ratings$score)
+# cols = base id; row = illusions below this one
+m_eigen = matrix(0, nrow = n, ncol = n)
+m_humans = matrix(0, nrow = n, ncol = n)
+
+for (i in c(1:n)){
+  below = subset(all_ratings, score < all_ratings$score[i])
+  for (b_id in below$id){
+    m_eigen[b_id, i] = 1
+  }
+  
+  below = subset(all_ratings, all_ratings$median_strength < all_ratings$median_strength[i])
+  for (b_id in below$id){
+    m_humans[b_id, i] = 1
+  }
+}
+
+print(m_eigen)
+print(m_humans)
+print(m_eigen-m_humans)
+
+sum(abs(m_eigen[,2:n]-m_humans[,2:n]))/(9*9)
+```
+
+
+
+
+
+Plot normalized data
+
+
+```{r}
+plot(all_ratings$id, all_ratings$median_strength/5, 
+     ylim = c(0,1), type = "l", col = "blue", xaxt="n", 
+     xlab = "", ylab = "Median Strength")
+points(all_ratings$id, all_ratings$score, type = "l", col = "red")
+
+axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
+axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
+
+```
+
+
+```{r}
+plot(all_ratings$id, all_ratings$median_strength, 
+     ylim = c(0,2), type = "l", col = "blue", xaxt="n", 
+     xlab = "", ylab = "Median Strength")
+points(all_ratings$id, all_ratings$score, type = "l", col = "red")
+
+axis(side=1, at=seq(1,n,2), labels=pretty_names[seq(1,n,2)], cex.axis=0.8, padj = -0.9)
+axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj = 0.9)
+
+```
+
+Violin plot
+
+```{r}
+# install.packages("vioplot")
+# library("vioplot")
+
+vioplot(results$strength ~ results$illusion_id)#, col = 2:length(levels(data$feed)),
+
+```
+
 
 Paste without NA
 useless
