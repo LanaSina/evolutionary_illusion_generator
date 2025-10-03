@@ -58,8 +58,8 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
         for i in range(1, n_ratios - 1):
             if radius > r_ratios[i]:
                 r = (radius - r_ratios[i]) / (r_ratios[i - 1] - r_ratios[i])
-                if direction < 0:
-                    r = 1-r
+                # if direction < 0:
+                #     r = 1-r
                 radius_index = n_ratios - i - 1
                 break;
 
@@ -82,7 +82,7 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
             theta = theta % (math.pi / 6.0)
 
             if direction < 0:
-                theta = (math.pi / 6.0) - theta
+              theta = (math.pi / 6.0) - theta
  
 
         elif structure == StructureType.CirclesFree:
