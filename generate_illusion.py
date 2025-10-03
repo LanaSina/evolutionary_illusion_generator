@@ -46,6 +46,8 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
         r_ratios[n_ratios - i] = r_ratios[n_ratios - i + 1] * 1.5
 
     r_ratios = r_ratios / r_ratios[0]
+    # angular size of a pattert
+    theta_size = (math.pi / 11.0) # 6
 
     # limit values to frame
     theta = 0
@@ -79,10 +81,10 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
                 theta = (theta + math.pi / 4.0)
 
                 # focus on 1 small pattern
-            theta = theta % (math.pi / 6.0)
+            theta = theta % theta_size
 
             if direction < 0:
-              theta = (math.pi / 6.0) - theta
+              theta = theta_size - theta
  
 
         elif structure == StructureType.CirclesFree:
