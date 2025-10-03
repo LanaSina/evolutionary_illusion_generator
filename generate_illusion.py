@@ -458,7 +458,10 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
 
         # limit number of colors to 4
         image_array = np.round(image_array*4)
-        image_array = image_array/4
+        image_array = image_array/4.0
+
+        # no complete black or complete white
+        image_array = (image_array*0.8)+0.1
 
         img_data = np.array(image_array * 255.0, dtype=np.uint8)
         image = Image.fromarray(img_data, 'L')
@@ -504,7 +507,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     images_list = [None] * total_count
     repeated_images_list = [None] * (total_count + repeat)
     i = 0
-    image_inputs = create_grid(structure, w, h, 10)
+    image_inputs = create_grid(structure, w, h, 10) # 10
     for genome_id, genome in population:
         # traverse latent space
         j = 0
