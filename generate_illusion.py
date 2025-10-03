@@ -38,7 +38,7 @@ class StructureType(IntEnum):
 def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Circles):  # max diameter?
     r_total = np.sqrt(x * x + y * y)
 
-    n_ratios = 10
+    n_ratios = 7 #10
     r_ratios = np.zeros(n_ratios)
     r_ratios[n_ratios - 1] = 1
 
@@ -217,7 +217,6 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
         a = np.linspace(-1 * sc, sc, num=x_len)
         x_range = np.tile(a, x_rep)
         # reverse the x axis 
-        # todo: ,1 not needed
         x_reverse = np.ones((y_res, 1))
         start = y_len
         while start < y_res:
@@ -241,7 +240,6 @@ def create_grid(structure, x_res=32, y_res=32, scaling=1.0):
         return {"x_mat": x_mat, "y_mat": y_mat}
 
     elif structure == StructureType.Circles:
-        r_ratios = [0.6, 0.3, 0.1]
         x_range = np.linspace(-1 * scaling, scaling, num=x_res)
         y_range = np.linspace(-1 * scaling, scaling, num=y_res)
 
@@ -396,6 +394,14 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
                 # an array with values between 0 and 1
                 pixels = node_func(x=inp_x, y=inp_y)
                 pixels_np = pixels.numpy()
+
+                # limit number of colors to 4 shades per channel
+                image_array = np.round(image_array*4)
+                image_array = image_array/4.0
+
+                # no complete 0 or complete 1
+                image_array = (image_array*0.8)+0.1
+
                 image_array[:, :, c] = np.reshape(pixels_np, (h, w))
                 for x in range(h):
                     for y in range(w):
@@ -409,6 +415,8 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
             pixels_np = pixels.numpy()
             image_array = np.reshape(pixels_np, (h, w))
 
+          
+            # alternative solution
             # 0 to 4
             # black, white, r, g, or b=255
             color_data = np.array(image_array * 4.0, dtype=np.uint8)
@@ -514,11 +522,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         for s in range(0, pertype_count):
             s_val = -1 + s * s_step
             index = i * pertype_count + j
-
-
-            # equiluminance
-            #image_whitebg = get_equilum_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
-            # image_blackbg = ..., bg = 0)
 
             image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
 
