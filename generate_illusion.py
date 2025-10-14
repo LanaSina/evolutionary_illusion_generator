@@ -395,12 +395,18 @@ def get_image_from_cppn(inputs, genome, c_dim, w, h, config, bg=1, gradient=1):
                 pixels = node_func(x=inp_x, y=inp_y)
                 pixels_np = pixels.numpy()
 
-                # limit number of colors to 4 shades per channel
-                image_array = np.round(image_array*4)
-                image_array = image_array/4.0
+                # # limit number of colors to 4 shades per channel
+                # image_array = np.round(image_array*4)
+                # image_array = image_array/4.0
+
+                # proper alternative by https://stackoverflow.com/questions/5906693/how-to-reduce-the-number-of-colors-in-an-image-with-opencv
+                div = 64
+                image_array = image_array // div * div + div // 2
 
                 # no complete 0 or complete 1
                 image_array = (image_array*0.8)+0.1
+
+
 
                 image_array[:, :, c] = np.reshape(pixels_np, (h, w))
                 for x in range(h):
