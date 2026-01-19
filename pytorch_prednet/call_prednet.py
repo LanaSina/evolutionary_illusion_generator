@@ -4,6 +4,20 @@ from datetime import datetime
 import numpy as np
 from PIL import Image
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from torch.optim import lr_scheduler
+import torchvision.utils as vutils
+from torch.utils.tensorboard import SummaryWriter
+from torchviz import make_dot
+import prednet as prednet_model
+from tqdm import tqdm
+from distutils.util import strtobool
+from pytorch_prednet.dataset import ImageListDataset, ImageHDF5Dataset
+from pytorch_prednet.corr_wise import CorrWise
+
+
 # import chainer
 # from chainer import cuda
 # import chainer.links as L
@@ -13,10 +27,10 @@ from PIL import Image
 # import chainer.computational_graph as c
 # sometimes need to be just import net 
 #from . import net
-if __name__ == "__main__": # Local Run
-    import net
-else: # Module Run
-    from . import net
+# if __name__ == "__main__": # Local Run
+#     import net
+# else: # Module Run
+#     from . import net
 
 # return the sorted list of images in that folder
 def make_list(images_dir, limit):
@@ -129,16 +143,17 @@ def train_image_sequences(sequence_list, prednet, model, optimizer,
 def test_image_list(prednet, imagelist, model, output_dir, channels, size, offset, gpu, logf, skip_save_frames=0, 
     extension_start=0, extension_duration=100, reset_each = False, step = 0, verbose = 1, reset_at = -1, input_len=-1, c = 3):
 
-    # print("args:  output_dir, channels, size, offset, gpu, skip_save_frames=0, extension_start=0, extension_duration=100, reset_each = False, step = 0, verbose = 1, reset_at = -1, input_len=-1):")
-    # print( output_dir, channels, size, offset, gpu,  skip_save_frames, extension_start, extension_duration, reset_each, step, verbose, reset_at, input_len)
-
     xp = cuda.cupy if gpu >= 0 else np
+    # this should be replaced
+    device=torch.device("cpu")
 
     prednet.reset_state()
     loss = 0
     batchSize = 1
     x_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
     y_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
+    # ? 
+    useamp = 0.001
 
     if reset_each:
         reset_at = 1
@@ -150,11 +165,20 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
 
         x_batch[0] = read_image(imagelist[i], size, offset, c)
         if(i<len(imagelist)-1):
-            y_batch[0] = read_image(imagelist[i+1], size, offset, c)
 
-        loss += model(chainer.Variable(xp.asarray(x_batch)),
-                      chainer.Variable(xp.asarray(y_batch)))
-        loss.unchain_backward()
+            # x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, args.channels[0], args.size[1], args.size[0])
+            with torch.no_grad():
+                with torch.amp.autocast('cuda',enabled=useamp):
+                    pred, errors, eval_index = model(x_batch.to(device))
+
+            y_batch = data[i, input_len:].view(1, 1, channels[0], size[1], size[0])
+
+            # y_batch[0] = read_image(imagelist[i+1], size, offset, c)
+
+        # loss += model(chainer.Variable(xp.asarray(x_batch)),
+        #             chainer.Variable(xp.asarray(y_batch)))
+        loss += errors
+        loss.unchain_backward() # not in the mother file
         loss = 0
         if gpu >= 0: model.to_cpu()
 
@@ -181,16 +205,19 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
         if step == 0  or (extension_start==0) or (step%extension_start>0):
             continue
 
-        if gpu >= 0: model.to_cpu()
+        # if gpu >= 0: model.to_cpu() # cpu is typo?
         x_batch[0] = model.y.data[0].copy()
-        if gpu >= 0: model.to_gpu()
+        # if gpu >= 0: model.to_gpu()
 
         for j in range(0,extension_duration):
             loss += model(chainer.Variable(xp.asarray(x_batch)),
                           chainer.Variable(xp.asarray(y_batch)))
+
+            pred, errors, eval_index = model(x_batch.to(device))
+
             loss.unchain_backward()
             loss = 0
-            if gpu >= 0:model.to_cpu()
+            # if gpu >= 0:model.to_cpu() # should say gpu
             num = str(step//skip_save_frames + j ).zfill(10)
             new_filename = output_dir + '/' + num + '_extended.png'
             if verbose == 1:
@@ -198,34 +225,81 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
 
             write_image(model.y.data[0].copy(), new_filename)
             x_batch[0] = model.y.data[0].copy()
-            if gpu >= 0:model.to_gpu()
+            # if gpu >= 0:model.to_gpu()
 
         prednet.reset_state()
 
     return step
 
 
-# sequence_list = [[path,path,path], [path,path,path]] list of lists of images
-def test_prednet(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
+# # sequence_list = [[path,path,path], [path,path,path]] list of lists of images
+# def test_prednet(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
+#                 skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
+#                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
+
+#     #Create Model
+#     prednet = net.PredNet(size[0], size[1], channels)
+#     model = L.Classifier(prednet, lossfun=mean_squared_error)
+#     model.compute_accuracy = False
+#     # optimizer = optimizers.Adam()
+#     # optimizer.setup(model)
+
+#     if gpu >= 0:
+#         cuda.check_cuda_available()
+#         xp = cuda.cupy
+#         cuda.get_device(gpu).use()
+#         model.to_gpu()
+#         print('Running on GPU')
+#     else:
+#         xp = np
+#         print('Running on CPU')
+
+#     # Init/Resume
+#     serializers.load_npz(initmodel, model)
+
+#     logf = open('test_log.txt', 'w')
+#     step = 0
+#     if verbose == 1:
+#         print("sequence_list ", sequence_list)
+#     for image_list in sequence_list:
+#         step = test_image_list(prednet, image_list, model, output_dir, channels, size, offset,
+#                                 gpu, logf, skip_save_frames, extension_start, extension_duration,
+#                                 reset_each, step, verbose, reset_at, input_len, c_dim)
+
+
+
+        # sequence_list = [[path,path,path], [path,path,path]] list of lists of images
+def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
                 skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
 
     #Create Model
-    prednet = net.PredNet(size[0], size[1], channels)
-    model = L.Classifier(prednet, lossfun=mean_squared_error)
-    model.compute_accuracy = False
-    # optimizer = optimizers.Adam()
-    # optimizer.setup(model)
+    # prednet = net.PredNet(size[0], size[1], channels)
+    # model = L.Classifier(prednet, lossfun=mean_squared_error)
+    # model.compute_accuracy = False
+   
 
-    if gpu >= 0:
-        cuda.check_cuda_available()
-        xp = cuda.cupy
-        cuda.get_device(gpu).use()
-        model.to_gpu()
-        print('Running on GPU')
-    else:
-        xp = np
-        print('Running on CPU')
+    # this should be replaced
+    device=torch.device("cpu")
+    prednet = prednet_model.PredNet(channels, diff_mode="pos_neg", device=device)
+
+    # if gpu >= 0:
+    #     cuda.check_cuda_available()
+    #     xp = cuda.cupy
+    #     cuda.get_device(gpu).use()
+    #     model.to_gpu()
+    #     print('Running on GPU')
+    # else:
+    #     xp = np
+
+    #     print('Running on CPU')
+
+    model.to(device)
+    net.eval()
+
+    print('Load model from', initmodel)
+    net.load_state_dict(torch.load(initmodel))
+    
 
     # Init/Resume
     serializers.load_npz(initmodel, model)
@@ -235,6 +309,13 @@ def test_prednet(initmodel, sequence_list, size, channels, gpu, output_dir="resu
     if verbose == 1:
         print("sequence_list ", sequence_list)
     for image_list in sequence_list:
+         # update dataset and loader 
+        img_dataset = ImageListDataset(img_size=size,
+                                       input_len=input_len, channels=channels)
+        img_dataset.load_images(img_paths=image_list, c_space=c_dim)
+        data_loader = DataLoader(img_dataset, batch_size=1, shuffle=False, num_workers=0) #todo: numworkers
+
+
         step = test_image_list(prednet, image_list, model, output_dir, channels, size, offset,
                                 gpu, logf, skip_save_frames, extension_start, extension_duration,
                                 reset_each, step, verbose, reset_at, input_len, c_dim)
