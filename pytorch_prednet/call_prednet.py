@@ -169,7 +169,7 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
             # x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, args.channels[0], args.size[1], args.size[0])
             with torch.no_grad():
                 with torch.amp.autocast('cuda',enabled=useamp):
-                    pred, errors, eval_index = model(x_batch.to(device))
+                    pred, errors, eval_index = prednet(x_batch.to(device))
 
             y_batch = data[i, input_len:].view(1, 1, channels[0], size[1], size[0])
 
@@ -180,12 +180,12 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
         loss += errors
         loss.unchain_backward() # not in the mother file
         loss = 0
-        if gpu >= 0: model.to_cpu()
+        # if gpu >= 0: model.to_cpu() # should be to gpu
 
         if(i<len(imagelist)-1):
             if verbose == 1:
-                print("step ", step," frame ", i, "loss:", model.loss.data)
-            logf.write(str(step) + ', ' + str(float(model.loss.data)) + '\n')
+                print("step ", step," frame ", i, "loss:", prednet.loss.data)
+            logf.write(str(step) + ', ' + str(float(prednet.loss.data)) + '\n')
             logf.flush()
         else:
             if verbose == 1:
@@ -196,9 +196,9 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
             new_filename = output_dir + '/' + num + '.png'
             if verbose == 1:
                 print("writing ", new_filename)
-            write_image(model.y.data[0].copy(), new_filename)
+            write_image(pred[0].detach().cpu().numpy(), new_filename)
 
-        if gpu >= 0: model.to_gpu()
+        # if gpu >= 0: model.to_gpu()
 
 
         step = step + 1
@@ -206,15 +206,12 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
             continue
 
         # if gpu >= 0: model.to_cpu() # cpu is typo?
-        x_batch[0] = model.y.data[0].copy()
+        x_batch[0] = pred[0].detach().cpu().numpy()
         # if gpu >= 0: model.to_gpu()
 
         for j in range(0,extension_duration):
-            loss += model(chainer.Variable(xp.asarray(x_batch)),
-                          chainer.Variable(xp.asarray(y_batch)))
-
-            pred, errors, eval_index = model(x_batch.to(device))
-
+            pred, errors, eval_index = prednet(x_batch.to(device))
+            loss += errors
             loss.unchain_backward()
             loss = 0
             # if gpu >= 0:model.to_cpu() # should say gpu
@@ -223,8 +220,8 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
             if verbose == 1:
                 print("writing ", new_filename)
 
-            write_image(model.y.data[0].copy(), new_filename)
-            x_batch[0] = model.y.data[0].copy()
+            write_image(ppred[0].detach().cpu().numpy(), new_filename)
+            x_batch[0] = pred[0].detach().cpu().numpy()
             # if gpu >= 0:model.to_gpu()
 
         prednet.reset_state()
@@ -280,7 +277,7 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
    
 
     # this should be replaced
-    device=torch.device("cpu")
+    device = torch.device("cpu")
     prednet = prednet_model.PredNet(channels, device=device)
 
     # if gpu >= 0:
@@ -294,15 +291,15 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
 
     #     print('Running on CPU')
 
-    model.to(device)
-    net.eval()
+    prednet.to(device)
+    prednet.eval()
 
     print('Load model from', initmodel)
-    net.load_state_dict(torch.load(initmodel))
+    prednet.load_state_dict(torch.load(initmodel))
     
 
     # Init/Resume
-    serializers.load_npz(initmodel, model)
+    # serializers.load_npz(initmodel, model)
 
     logf = open('test_log.txt', 'w')
     step = 0

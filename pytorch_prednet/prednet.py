@@ -4,7 +4,7 @@ import math
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from convlstmcell import ConvLSTMCell
+from pytorch_prednet.convlstmcell import ConvLSTMCell
 
 
 class SatLU(nn.Module):
@@ -22,8 +22,8 @@ class SatLU(nn.Module):
         inplace_str = ', inplace' if self.inplace else ''
         return self.__class__.__name__ + ' ('\
             + 'min_val=' + str(self.lower) \
-	        + ', max_val=' + str(self.upper) \
-	        + inplace_str + ')'
+            + ', max_val=' + str(self.upper) \
+            + inplace_str + ')'
 
 
 class AddSin(nn.Module):
