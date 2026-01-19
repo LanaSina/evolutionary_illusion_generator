@@ -1,11 +1,10 @@
 import numpy as np
 import os
 from optical_flow.optical_flow import lucas_kanade, draw_tracks, save_data
-from chainer_prednet.PredNet.call_prednet import test_prednet
-from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
+from pytorch_prednet.call_prednet import test_prednet_pytorch
+from pytorch_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 from enum import IntEnum
 import math
-
 
 class StructureType(IntEnum):
     Bands = 0
