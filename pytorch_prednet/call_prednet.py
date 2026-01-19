@@ -14,8 +14,8 @@ from torchviz import make_dot
 import prednet
 from tqdm import tqdm
 from distutils.util import strtobool
-from dataset import ImageListDataset, ImageHDF5Dataset
-from corr_wise import CorrWiseß
+from pytorch_prednet.dataset import ImageListDataset, ImageHDF5Dataset
+from pytorch_prednet.corr_wise import CorrWise
 
 
 # import chainer
@@ -27,10 +27,10 @@ from corr_wise import CorrWiseß
 # import chainer.computational_graph as c
 # sometimes need to be just import net 
 #from . import net
-if __name__ == "__main__": # Local Run
-    import net
-else: # Module Run
-    from . import net
+# if __name__ == "__main__": # Local Run
+#     import net
+# else: # Module Run
+#     from . import net
 
 # return the sorted list of images in that folder
 def make_list(images_dir, limit):
@@ -232,39 +232,39 @@ def test_image_list(prednet, imagelist, model, output_dir, channels, size, offse
     return step
 
 
-# sequence_list = [[path,path,path], [path,path,path]] list of lists of images
-def test_prednet(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
-                skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
-                reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
+# # sequence_list = [[path,path,path], [path,path,path]] list of lists of images
+# def test_prednet(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
+#                 skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
+#                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
 
-    #Create Model
-    prednet = net.PredNet(size[0], size[1], channels)
-    model = L.Classifier(prednet, lossfun=mean_squared_error)
-    model.compute_accuracy = False
-    # optimizer = optimizers.Adam()
-    # optimizer.setup(model)
+#     #Create Model
+#     prednet = net.PredNet(size[0], size[1], channels)
+#     model = L.Classifier(prednet, lossfun=mean_squared_error)
+#     model.compute_accuracy = False
+#     # optimizer = optimizers.Adam()
+#     # optimizer.setup(model)
 
-    if gpu >= 0:
-        cuda.check_cuda_available()
-        xp = cuda.cupy
-        cuda.get_device(gpu).use()
-        model.to_gpu()
-        print('Running on GPU')
-    else:
-        xp = np
-        print('Running on CPU')
+#     if gpu >= 0:
+#         cuda.check_cuda_available()
+#         xp = cuda.cupy
+#         cuda.get_device(gpu).use()
+#         model.to_gpu()
+#         print('Running on GPU')
+#     else:
+#         xp = np
+#         print('Running on CPU')
 
-    # Init/Resume
-    serializers.load_npz(initmodel, model)
+#     # Init/Resume
+#     serializers.load_npz(initmodel, model)
 
-    logf = open('test_log.txt', 'w')
-    step = 0
-    if verbose == 1:
-        print("sequence_list ", sequence_list)
-    for image_list in sequence_list:
-        step = test_image_list(prednet, image_list, model, output_dir, channels, size, offset,
-                                gpu, logf, skip_save_frames, extension_start, extension_duration,
-                                reset_each, step, verbose, reset_at, input_len, c_dim)
+#     logf = open('test_log.txt', 'w')
+#     step = 0
+#     if verbose == 1:
+#         print("sequence_list ", sequence_list)
+#     for image_list in sequence_list:
+#         step = test_image_list(prednet, image_list, model, output_dir, channels, size, offset,
+#                                 gpu, logf, skip_save_frames, extension_start, extension_duration,
+#                                 reset_each, step, verbose, reset_at, input_len, c_dim)
 
 
 
@@ -274,9 +274,9 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
 
     #Create Model
-    prednet = net.PredNet(size[0], size[1], channels)
-    model = L.Classifier(prednet, lossfun=mean_squared_error)
-    model.compute_accuracy = False
+    # prednet = net.PredNet(size[0], size[1], channels)
+    # model = L.Classifier(prednet, lossfun=mean_squared_error)
+    # model.compute_accuracy = False
    
 
     # this should be replaced

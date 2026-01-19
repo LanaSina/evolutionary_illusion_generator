@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from flow_utils import warp, clip_flow, normalize_flow
+from pytorch_prednet.flow_utils import warp, clip_flow, normalize_flow
 
 import pdb
 

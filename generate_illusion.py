@@ -1,6 +1,6 @@
 import argparse
 from pytorch_prednet.call_prednet import test_prednet
-from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
+from pytorch_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 import csv
 import cv2
 from enum import IntEnum
