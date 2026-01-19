@@ -11,7 +11,7 @@ from torch.optim import lr_scheduler
 import torchvision.utils as vutils
 from torch.utils.tensorboard import SummaryWriter
 from torchviz import make_dot
-import prednet as prednet_model
+import prednet_model
 from tqdm import tqdm
 from distutils.util import strtobool
 from pytorch_prednet.dataset import ImageListDataset, ImageHDF5Dataset
@@ -281,7 +281,7 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
 
     # this should be replaced
     device=torch.device("cpu")
-    prednet = prednet_model.PredNet(channels, diff_mode="pos_neg", device=device)
+    prednet = prednet_model.PredNet(channels, device=device)
 
     # if gpu >= 0:
     #     cuda.check_cuda_available()
