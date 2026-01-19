@@ -88,7 +88,7 @@ def train_image_list(imagelist, model, optimizer, channels, size, offset, gpu, i
         print("Not found images.")
         return
 
-    xp = cuda.cupy if gpu >= 0 else np
+    # xp = cuda.cupy if gpu >= 0 else np
     batchSize = 1
     x_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
     y_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
@@ -140,91 +140,102 @@ def train_image_sequences(sequence_list, prednet, model, optimizer,
 
 
 # imagelist = [path, path, path]
-def test_image_list(prednet, imagelist, model, output_dir, channels, size, offset, gpu, logf, skip_save_frames=0, 
+def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu, logf, skip_save_frames=0, 
     extension_start=0, extension_duration=100, reset_each = False, step = 0, verbose = 1, reset_at = -1, input_len=-1, c = 3):
 
-    xp = cuda.cupy if gpu >= 0 else np
+    # xp = cuda.cupy if gpu >= 0 else np
     # this should be replaced
     device=torch.device("cpu")
 
-    prednet.reset_state()
+    # todo
+    # prednet.reset_state()
     loss = 0
     batchSize = 1
     x_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
     y_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
     # ? 
-    useamp = 0.001
+    useamp = True
 
     if reset_each:
         reset_at = 1
 
-    for i in range(0, len(imagelist)):
 
-        if input_len>0 and i>input_len:
-            break
+    # update dataset and loader 
+    img_dataset = ImageListDataset(img_size=(size[0],size[1]),
+                                   input_len=input_len, channels=channels[0])
+    img_dataset.load_images(img_paths=imagelist, c_space='RGB')
+    data_loader = DataLoader(img_dataset, batch_size=batchSize, shuffle=False, num_workers=0)
+       
+    for j, data in enumerate(tqdm(data_loader, unit="batch")):
+        for i in range(len(data)):
 
-        x_batch[0] = read_image(imagelist[i], size, offset, c)
-        if(i<len(imagelist)-1):
+            if input_len>0 and i>input_len:
+                break
 
-            # x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, args.channels[0], args.size[1], args.size[0])
-            with torch.no_grad():
-                with torch.amp.autocast('cuda',enabled=useamp):
-                    pred, errors, eval_index = prednet(x_batch.to(device))
+            # x_batch[0] = read_image(imagelist[i], size, offset, c)
+            x_batch[0] = data[0, 0:i+2].view(1, i + 2, channels[0], size[1], size[0])
 
-            y_batch = data[i, input_len:].view(1, 1, channels[0], size[1], size[0])
+            if(i<len(imagelist)-1):
 
-            # y_batch[0] = read_image(imagelist[i+1], size, offset, c)
+                # x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, args.channels[0], args.size[1], args.size[0])
+                with torch.no_grad():
+                    with torch.amp.autocast('cuda',enabled=useamp):
+                        pred, errors, eval_index = prednet(x_batch.to(device))
 
-        # loss += model(chainer.Variable(xp.asarray(x_batch)),
-        #             chainer.Variable(xp.asarray(y_batch)))
-        loss += errors
-        loss.unchain_backward() # not in the mother file
-        loss = 0
-        # if gpu >= 0: model.to_cpu() # should be to gpu
+                y_batch = data[i, input_len:].view(1, 1, channels[0], size[1], size[0])
 
-        if(i<len(imagelist)-1):
-            if verbose == 1:
-                print("step ", step," frame ", i, "loss:", prednet.loss.data)
-            logf.write(str(step) + ', ' + str(float(prednet.loss.data)) + '\n')
-            logf.flush()
-        else:
-            if verbose == 1:
-                print("step ", step," frame ", i, "loss: last frame.")
+                # y_batch[0] = read_image(imagelist[i+1], size, offset, c)
 
-        if ((step+1)%skip_save_frames == 0):
-            num = str(step//skip_save_frames).zfill(10)
-            new_filename = output_dir + '/' + num + '.png'
-            if verbose == 1:
-                print("writing ", new_filename)
-            write_image(pred[0].detach().cpu().numpy(), new_filename)
-
-        # if gpu >= 0: model.to_gpu()
-
-
-        step = step + 1
-        if step == 0  or (extension_start==0) or (step%extension_start>0):
-            continue
-
-        # if gpu >= 0: model.to_cpu() # cpu is typo?
-        x_batch[0] = pred[0].detach().cpu().numpy()
-        # if gpu >= 0: model.to_gpu()
-
-        for j in range(0,extension_duration):
-            pred, errors, eval_index = prednet(x_batch.to(device))
+            # loss += model(chainer.Variable(xp.asarray(x_batch)),
+            #             chainer.Variable(xp.asarray(y_batch)))
             loss += errors
-            loss.unchain_backward()
+            loss.unchain_backward() # not in the mother file
             loss = 0
-            # if gpu >= 0:model.to_cpu() # should say gpu
-            num = str(step//skip_save_frames + j ).zfill(10)
-            new_filename = output_dir + '/' + num + '_extended.png'
-            if verbose == 1:
-                print("writing ", new_filename)
+            # if gpu >= 0: model.to_cpu() # should be to gpu
 
-            write_image(ppred[0].detach().cpu().numpy(), new_filename)
+            if(i<len(imagelist)-1):
+                if verbose == 1:
+                    print("step ", step," frame ", i, "loss:", prednet.loss.data)
+                logf.write(str(step) + ', ' + str(float(prednet.loss.data)) + '\n')
+                logf.flush()
+            else:
+                if verbose == 1:
+                    print("step ", step," frame ", i, "loss: last frame.")
+
+            if ((step+1)%skip_save_frames == 0):
+                num = str(step//skip_save_frames).zfill(10)
+                new_filename = output_dir + '/' + num + '.png'
+                if verbose == 1:
+                    print("writing ", new_filename)
+                write_image(pred[0].detach().cpu().numpy(), new_filename)
+
+            # if gpu >= 0: model.to_gpu()
+
+
+            step = step + 1
+            if step == 0  or (extension_start==0) or (step%extension_start>0):
+                continue
+
+            # if gpu >= 0: model.to_cpu() # cpu is typo?
             x_batch[0] = pred[0].detach().cpu().numpy()
-            # if gpu >= 0:model.to_gpu()
+            # if gpu >= 0: model.to_gpu()
 
-        prednet.reset_state()
+            for j in range(0,extension_duration):
+                pred, errors, eval_index = prednet(x_batch.to(device))
+                loss += errors
+                loss.unchain_backward()
+                loss = 0
+                # if gpu >= 0:model.to_cpu() # should say gpu
+                num = str(step//skip_save_frames + j ).zfill(10)
+                new_filename = output_dir + '/' + num + '_extended.png'
+                if verbose == 1:
+                    print("writing ", new_filename)
+
+                write_image(ppred[0].detach().cpu().numpy(), new_filename)
+                x_batch[0] = pred[0].detach().cpu().numpy()
+                # if gpu >= 0:model.to_gpu()
+
+            prednet.reset_state()
 
     return step
 
@@ -294,8 +305,8 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
     prednet.to(device)
     prednet.eval()
 
-    print('Load model from', initmodel)
-    prednet.load_state_dict(torch.load(initmodel))
+    #print('Load model from', initmodel)
+    #prednet.load_state_dict(torch.load(initmodel))
     
 
     # Init/Resume
@@ -308,12 +319,9 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
     for image_list in sequence_list:
          # update dataset and loader 
         img_dataset = ImageListDataset(img_size=size,
-                                       input_len=input_len, channels=channels)
-        img_dataset.load_images(img_paths=image_list, c_space=c_dim)
-        data_loader = DataLoader(img_dataset, batch_size=1, shuffle=False, num_workers=0) #todo: numworkers
+                                       input_len=input_len, channels=channels[0])
 
-
-        step = test_image_list(prednet, image_list, model, output_dir, channels, size, offset,
+        step = test_image_list(prednet, image_list, output_dir, channels, size, offset,
                                 gpu, logf, skip_save_frames, extension_start, extension_duration,
                                 reset_each, step, verbose, reset_at, input_len, c_dim)
         
