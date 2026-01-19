@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 from PIL import Image
 
-import chainer
+# import chainer
 # from chainer import cuda
 # import chainer.links as L
 # from chainer import optimizers

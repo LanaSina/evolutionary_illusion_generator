@@ -1,5 +1,5 @@
 import argparse
-from chainer_prednet.PredNet.call_prednet import test_prednet
+from pytorch_prednet.call_prednet import test_prednet
 from chainer_prednet.utilities.mirror_images import mirror, mirror_multiple, TransformationType
 import csv
 import cv2
