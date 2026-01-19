@@ -530,7 +530,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     skip = 1
     extension_duration = 2  # 2
     # runs repeat x times on the input image, save in result folder
-    test_prednet(initmodel=model_name, sequence_list=[repeated_images_list], size=size,
+    test_prednet_pytorch(initmodel=model_name, sequence_list=[repeated_images_list], size=size,
                  channels=channels, gpu=gpu, output_dir=prediction_dir, skip_save_frames=skip,
                  extension_start=repeat, extension_duration=extension_duration,
                  reset_at=repeat + extension_duration, verbose=0, c_dim=c_dim
