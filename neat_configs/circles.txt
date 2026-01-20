@@ -2,7 +2,8 @@
 no_fitness_termination = True
 fitness_criterion     = mean
 fitness_threshold     = 0.3
-pop_size              = 30
+# this is actually the number of species for some reason
+pop_size              = 12
 reset_on_extinction   = False
 
 [DefaultGenome]
@@ -83,11 +84,11 @@ compatibility_threshold = 3.0
 [DefaultStagnation]
 species_fitness_func = max
 max_stagnation       = 20
-species_elitism      = 2
+species_elitism      = 1
 
 [DefaultReproduction]
-# this says how many to keep per species
-elitism            = 2
+# this suppposed how many to keep per species
+elitism            = 1
 survival_threshold = 0.5
 # this define the number of members per species
-min_species_size = 5
+min_species_size = 1

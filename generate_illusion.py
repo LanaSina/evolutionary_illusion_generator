@@ -696,6 +696,8 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels
     checkpointer = neat.Checkpointer(100)
 
     # Create the population, which is the top-level object for a NEAT run.
+    # It looks like initial population size is confused by neat as being the number of species,
+    # which it then tries to augment by x number of spawns and crashes as pop size is not respected
     if not checkpoint:
         p = neat.Population(config)
     else:
