@@ -555,6 +555,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         i = i + 1
 
     # calculate score
+    print("Calculating scores...")
     scores = [None] * len(population)
     for i in range(0, len(population)):
         final_score = -100
@@ -581,10 +582,13 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             elif structure == StructureType.Circles \
                     or structure == StructureType.CirclesFree:
                 max_strength = 0.3  # 0.4
+                print(len(original_vectors[0]), " vectors")
                 ratio = plausibility_ratio(original_vectors[index], max_strength)
                 score_0 = ratio[0]
                 good_vectors = ratio[1]
                 min_vectors = 24 #((2 * math.pi) / (math.pi / 4.0)) * 3
+                print("plausibility_ratio ", score_0, "; " , len(good_vectors), " good_vectors ")
+
 
                 if (len(good_vectors) > min_vectors):
                     # get tangent scores
@@ -592,6 +596,8 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                     score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
                     score_strength = strength_number(good_vectors, max_strength)
                     score_d = 0.7 * score_direction + 0.3 * score_strength
+                    print("score_direction ", score_direction, " score_strength ", score_strength)
+
 
             elif structure == StructureType.Free:
                 max_strength = 0.4
@@ -626,24 +632,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             best_illusion = i
             best_score = scores[i][1]
             best_genome = genome
-        # if (scores[i][1]==0):
-        #     # save a control
-        #     print("0 fitness", i)
-        #     image_name = output_dir + "/images/" + str(i).zfill(10) + ".png"
-        #     move_to_name = best_dir + "/0-fitness.png"
-        #     shutil.copy(image_name, move_to_name)
-        #     index = int(i * (repeat / skip) + repeat - 1)
-        #     image_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
-        #     move_to_name = best_dir + "/0-fitness_flow.png"
-        #     shutil.copy(image_name, move_to_name)
-        #     # create enhanced image
-        #     e_w = 800
-        #     e_h = 800
-        #     e_grid = enhanced_image_grid(e_w, e_h, structure)
-        #     image = get_image_from_cppn(e_grid, population[i][1], c_dim, e_w, e_h, config, bg=1, gradient=gradient)
-        #     image_name = best_dir + "/0-fitness_enhanced.png"
-        #     image.save(image_name)
-
+  
         i = i + 1
 
     # save best illusion
