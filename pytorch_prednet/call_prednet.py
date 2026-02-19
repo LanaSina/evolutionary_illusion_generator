@@ -57,6 +57,9 @@ def write_image(image, path):
 def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu, logf, skip_save_frames=0, 
     extension_start=0, extension_duration=100, reset_each = False, step = 0, verbose = 1, reset_at = -1, input_len=-1, c = 3):
 
+    if verbose==1:
+        print("extension_duration ", extension_duration)
+
     # xp = cuda.cupy if gpu >= 0 else np
     # 　this should be replaced
     device=torch.device("cpu")
@@ -99,16 +102,11 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
             if verbose == 1:
                 print("step ", step," frame ", i)
         else:
-            if verbose == 1:
-                print("step ", step," frame ", i, "loss: last frame.")
-
-        if ((step+1)%skip_save_frames == 0):
-            num = str(step//skip_save_frames).zfill(10)
+            num = str(offset+step).zfill(10)
             new_filename = output_dir + '/' + num + '.png'
             if verbose == 1:
                 print("writing ", new_filename)
             write_image(pred[0].detach().cpu().numpy(), new_filename)
-
         # if gpu >= 0: model.to_gpu()
 
 
@@ -121,28 +119,12 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
         x_batch[0] = pred[0]#.detach()#.cpu() # .numpy()
         # if gpu >= 0: model.to_gpu()
 
-        for j in range(0,extension_duration):
-            pred, errors, eval_index = prednet(x_batch.to(device))
-            loss += errors
-            # loss.unchain_backward()
-            loss = 0
-            # if gpu >= 0:model.to_cpu() # should say gpu
-            num = str(step//skip_save_frames + j ).zfill(10)
-            new_filename = output_dir + '/' + num + '_extended.png'
-            if verbose == 1:
-                print("writing ", new_filename)
-
-            write_image(pred[0].detach().cpu().numpy(), new_filename)
-            x_batch[0] = pred[0]#.detach().cpu()#.numpy()
-            # if gpu >= 0:model.to_gpu()
-
-        # prednet.reset_state()
-
     return step
 
 
-def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
-                skip_save_frames=0, extension_start=0, extension_duration=20, offset = [0,0], 
+# image list: non repeating list
+def test_prednet_pytorch(initmodel, image_list, size, channels, gpu, output_dir="result", 
+                skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
 
     #Create Model
@@ -178,14 +160,15 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
 
     logf = open('test_log.txt', 'w')
     step = 0
-    if verbose == 1:
-        print("sequence_list ", sequence_list)
-    for image_list in sequence_list:
-         # update dataset and loader 
-        img_dataset = ImageListDataset(img_size=size,
-                                       input_len=input_len, channels=channels[0])
+    repeat = 20
 
-        step = test_image_list(prednet, image_list, output_dir, channels, size, offset,
+    for n, image in enumerate(image_list):
+        sequence_list = [image]*repeat
+        if verbose == 1:
+            print("sequence_list ", sequence_list)
+
+        offset = n*20
+        step = test_image_list(prednet, sequence_list, output_dir, channels, size, offset,
                                 gpu, logf, skip_save_frames, extension_start, extension_duration,
                                 reset_each, step, verbose, reset_at, input_len, c_dim)
         

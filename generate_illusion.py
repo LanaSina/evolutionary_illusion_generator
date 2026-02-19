@@ -476,8 +476,9 @@ def pil_to_cv2(image, c_dim):
 
 # population:  [id, net]
 def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
-                       id=0, c_dim=3, best_dir=".", gradient=1):
+                       id=0, c_dim=3, best_dir=".", gradient=1, verbose=0):
     print("Calculating fitnesses of populations: ", len(population))
+    n_pop = len(population)
     output_dir = "temp/"
     repeat = 20
     half_h = int(h / 2)
@@ -491,49 +492,30 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     if not os.path.exists(output_dir + "images/"):
         os.makedirs(output_dir + "images/")
 
-    # latent space coarse graining (none)
-    s_step = 2
-    pertype_count = int((2 / s_step))
-    total_count = len(population) * pertype_count
-    images_list = [None] * total_count
-    repeated_images_list = [None] * (total_count + repeat)
-    i = 0
+   
+    image_list = [None] * n_pop
+    #repeated_images_list = [None] * (total_count + repeat)
+    # i = 0
     image_inputs = create_grid(structure, w, h, 10)
     for genome_id, genome in population:
-        # traverse latent space
-        j = 0
-        for s in range(0, pertype_count):
-            s_val = -1 + s * s_step
-            index = i * pertype_count + j
+        # genome id starts at i
+        index = genome_id - 1
 
+        image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
 
-            # equiluminance
-            #image_whitebg = get_equilum_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
-            # image_blackbg = ..., bg = 0)
-
-            image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
-
-
-            # save  image
-            image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
-            image_whitebg.save(image_name, "PNG")
-            # image_name = output_dir + "images/" + str(index).zfill(10) + "_black.png"
-            # image_blackbg.save(image_name, "PNG")
-
-            images_list[index] = image_name
-            repeated_images_list[index * repeat:(index + 1) * repeat] = [image_name] * repeat
-
-            j = j + 1
-        i = i + 1
+        # save  image
+        image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
+        image_whitebg.save(image_name, "PNG")
+        image_list[index] = image_name
 
     print("Predicting illusions...")
     skip = 1
-    extension_duration = 2  # 2
+    extension_duration = 0 # was 2
     # runs repeat x times on the input image, save in result folder
-    test_prednet_pytorch(initmodel=model_name, sequence_list=[repeated_images_list], size=size,
+    test_prednet_pytorch(initmodel=model_name, image_list=image_list, size=size,
                  channels=channels, gpu=gpu, output_dir=prediction_dir, skip_save_frames=skip,
                  extension_start=repeat, extension_duration=extension_duration,
-                 reset_at=repeat + extension_duration, verbose=0, c_dim=c_dim
+                 reset_at=repeat + extension_duration, verbose=verbose, c_dim=c_dim
                  )
     # calculate flows
     print("Calculating flows...")
@@ -662,7 +644,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     cv2_imshow(cv2.imread(image_name))
 
 
-def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim=3, checkpoint=None, gradient=1):
+def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim=3, checkpoint=None, gradient=1, verbose=0):
     repeat = 6
     limit = 1
     half_h = int(h / 2)
@@ -680,7 +662,7 @@ def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels
 
     def eval_genomes(genomes, config):
         get_fitnesses_neat(structure, genomes, model_name, config, w, h, channels,
-                           c_dim=c_dim, best_dir=best_dir, gradient=gradient)
+                           c_dim=c_dim, best_dir=best_dir, gradient=gradient, verbose = verbose)
 
     checkpointer = neat.Checkpointer(100)
 
@@ -724,6 +706,7 @@ if __name__ == "__main__":
     # 3,48,96,192
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
     parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
+    parser.add_argument('--verbose', '-verbose', default=0, type=int, help='1 for verbose')
 
     args = parser.parse_args()
     output_dir = args.output_dir
@@ -757,4 +740,4 @@ if __name__ == "__main__":
     print("config", config)
     print("gradient", args.gradient)
     neat_illusion(output_dir, args.model, config, args.structure, w, h, string_to_intarray(args.channels),
-                  args.color_space, args.checkpoint, args.gradient)
+                  args.color_space, args.checkpoint, args.gradient, args.verbose)
