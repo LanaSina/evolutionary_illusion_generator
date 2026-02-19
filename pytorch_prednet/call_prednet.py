@@ -18,20 +18,6 @@ from pytorch_prednet.dataset import ImageListDataset, ImageHDF5Dataset
 from pytorch_prednet.corr_wise import CorrWise
 
 
-# import chainer
-# from chainer import cuda
-# import chainer.links as L
-# from chainer import optimizers
-# from chainer import serializers
-# from chainer.functions.loss.mean_squared_error import mean_squared_error
-# import chainer.computational_graph as c
-# sometimes need to be just import net 
-#from . import net
-# if __name__ == "__main__": # Local Run
-#     import net
-# else: # Module Run
-#     from . import net
-
 # return the sorted list of images in that folder
 def make_list(images_dir, limit):
     temp_list = sorted(os.listdir(images_dir))
@@ -52,13 +38,6 @@ def read_image(full_path, size, offset, c = 3):
         image_array = np.asarray(image)
         image_array_w = image_array.transpose(2, 0, 1)
 
-    #print(image_array_w.shape)
-    # # // is int division
-    # top = offset[1] + (image.shape[1]  - size[1]) // 2
-    # left = offset[0] + (image.shape[2]  - size[0]) // 2
-    # bottom = size[1] + top
-    # right = size[0] + left
-    # image = image[:, top:bottom, left:right].astype(np.float32)
     image = image_array_w/255
     return image
 
@@ -73,71 +52,6 @@ def write_image(image, path):
         result = Image.fromarray(image[:,:,0], 'L')
 
     result.save(path)
-
-
-def save_model(count, model, optimizer):
-    print('save the model')
-    serializers.save_npz('models/' + str(count) + '.model', model)
-    print('save the optimizer')
-    serializers.save_npz('models/' + str(count) + '.state', optimizer)
-  
-def train_image_list(imagelist, model, optimizer, channels, size, offset, gpu, input_len, save, 
-                     bprop, logf, step = 0, verbose = 1, c = 3):
-
-    if len(imagelist) == 0:
-        print("Not found images.")
-        return
-
-    # xp = cuda.cupy if gpu >= 0 else np
-    batchSize = 1
-    x_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
-    y_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
-
-    x_batch[0] = read_image(imagelist[0], size, offset, c)
-    loss = 0
-    for i in range(1, len(imagelist)):
-
-        y_batch[0] = read_image(imagelist[i], size, offset, c);
-        loss += model(chainer.Variable(xp.asarray(x_batch)),
-                      chainer.Variable(xp.asarray(y_batch)))
-
-        if (step + 1) % bprop == 0:
-            model.zerograds()
-            loss.backward()
-            loss.unchain_backward()
-            loss = 0
-            optimizer.update()
-       
-            if gpu >= 0:model.to_gpu()
-            if verbose == 1:
-                print("step ", step," frame ", i, "loss:", model.loss.data)
-            logf.write(str(step) + ', ' + str(float(model.loss.data)) + '\n')
-            logf.flush()
-
-        step += 1
-        if (step%save) == 0:
-            save_model(step, model, optimizer)
-        x_batch[0] = y_batch[0]
-        
-        if (input_len>0 and step>=input_len):
-            break
-
-    return step
-
-
-# c is color space (L or RGB)
-def train_image_sequences(sequence_list, prednet, model, optimizer,
-                        channels, size, gpu, input_len, save, bprop, c = 3):
-    step = 0
-    logf = open('train_log.txt', 'w')
-    while step<input_len:
-        for image_list in sequence_list:
-            prednet.reset_state()
-            step = train_image_list(image_list, model, optimizer, channels, size, offset, gpu, 
-                        input_len, save, bprop, logf, step, verbose, c)
-
-    save_model(step, model, optimizer)
-
 
 # imagelist = [path, path, path]
 def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu, logf, skip_save_frames=0, 
@@ -159,13 +73,6 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
     if reset_each:
         reset_at = 1
 
-
-    # update dataset and loader 
-    # img_dataset = ImageListDataset(img_size=(size[0],size[1]),
-    #                               input_len=input_len, channels=channels[0])
-    # img_dataset.load_images(img_paths=imagelist, c_space='RGB')
-    # data_loader = DataLoader(img_dataset, batch_size=batchSize, shuffle=False, num_workers=0)
-       
     # for j, data in enumerate(tqdm(data_loader, unit="batch")):
     for i in range(len(imagelist)):
 
@@ -183,14 +90,8 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
                 with torch.amp.autocast('cuda',enabled=useamp):
                     pred, errors, eval_index = prednet(x_batch.to(device))
 
-            # y_batch = data[i, input_len:]#.view(1, 1, channels[0], size[1], size[0])
 
-            # y_batch[0] = read_image(imagelist[i+1], size, offset, c)
-
-        # loss += model(chainer.Variable(xp.asarray(x_batch)),
-        #             chainer.Variable(xp.asarray(y_batch)))
         loss += errors
-        # loss.unchain_backward() # not in the mother file
         loss = 0
         # if gpu >= 0: model.to_cpu() # should be to gpu
 
@@ -240,43 +141,6 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
     return step
 
 
-# # sequence_list = [[path,path,path], [path,path,path]] list of lists of images
-# def test_prednet(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
-#                 skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
-#                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
-
-#     #Create Model
-#     prednet = net.PredNet(size[0], size[1], channels)
-#     model = L.Classifier(prednet, lossfun=mean_squared_error)
-#     model.compute_accuracy = False
-#     # optimizer = optimizers.Adam()
-#     # optimizer.setup(model)
-
-#     if gpu >= 0:
-#         cuda.check_cuda_available()
-#         xp = cuda.cupy
-#         cuda.get_device(gpu).use()
-#         model.to_gpu()
-#         print('Running on GPU')
-#     else:
-#         xp = np
-#         print('Running on CPU')
-
-#     # Init/Resume
-#     serializers.load_npz(initmodel, model)
-
-#     logf = open('test_log.txt', 'w')
-#     step = 0
-#     if verbose == 1:
-#         print("sequence_list ", sequence_list)
-#     for image_list in sequence_list:
-#         step = test_image_list(prednet, image_list, model, output_dir, channels, size, offset,
-#                                 gpu, logf, skip_save_frames, extension_start, extension_duration,
-#                                 reset_each, step, verbose, reset_at, input_len, c_dim)
-
-
-
-        # sequence_list = [[path,path,path], [path,path,path]] list of lists of images
 def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
                 skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
@@ -326,48 +190,6 @@ def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_d
                                 reset_each, step, verbose, reset_at, input_len, c_dim)
         
 
-def train_prednet(initmodel, sequence_list, gpu, size, channels, offset, resume,
-                bprop, output_dir="result", period=1000000, save=10000, verbose = 1, c = 3):
-    if not os.path.exists('models'):
-        os.makedirs('models')
-    if not os.path.exists('images'):
-        os.makedirs('images')
-
-    #Create Model
-    prednet = net.PredNet(size[0], size[1], channels)
-    model = L.Classifier(prednet, lossfun=mean_squared_error)
-    model.compute_accuracy = False
-    optimizer = optimizers.Adam()
-    optimizer.setup(model)
-
-    if gpu >= 0:
-        cuda.check_cuda_available()
-        xp = cuda.cupy
-        cuda.get_device(gpu).use()
-        model.to_gpu()
-        print('Running on GPU')
-    else:
-        xp = np
-        print('Running on CPU')
-
-    # Init/Resume
-    if initmodel:
-        print('Load model from', initmodel)
-        serializers.load_npz(initmodel, model)
-    if resume:
-        print('Load optimizer state from', resume)
-        serializers.load_npz(resume, optimizer)
-
-    train_image_sequences(sequence_list, prednet, model, optimizer, 
-                        channels, size, offset, gpu, period, save, bprop, verbose, c)   
-
-      
-def string_to_intarray(string_input):
-    array = string_input.split(',')
-    for i in range(len(array)):
-        array[i] = int(array[i])
-
-    return array
 
 def call_with_args(args):  
     if (not args.images_path) and (not args.sequences):
