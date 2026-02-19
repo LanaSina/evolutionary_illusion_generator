@@ -569,7 +569,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             if (len(good_vectors) > min_vectors):
                 # get tangent scores
                 limits = [0, h / 2]
-                score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[i])
+                score_direction = rotation_symmetry_score(good_vectors, w, h, limits, image_list[i])
                 score_strength = strength_number(good_vectors, max_strength)
                 score_d = 0.7 * score_direction + 0.3 * score_strength
                 print("score_direction ", score_direction, " score_strength ", score_strength)
