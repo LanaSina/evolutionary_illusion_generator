@@ -718,7 +718,7 @@ if __name__ == "__main__":
                         help='Type of illusion. 0: Bands; 1: Circles; 2: Free form')
     parser.add_argument('--config', '-cfg', default="", help='path to the NEAT config file')
     parser.add_argument('--checkpoint', '-cp', help='path of checkpoint to restore')
-    parser.add_argument('--size', '-wh', help='big or small', default="small")
+    parser.add_argument('--image_size', '-wh', help='w,h', default="160,120")
     parser.add_argument('--color_space', '-c', help='1 for greyscale, 3 for rgb', default=3, type=int)
     # [1,16,32,64]
     # 3,48,96,192
@@ -730,11 +730,9 @@ if __name__ == "__main__":
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    w = 160
-    h = 120
-    if args.size == "big":
-        w = 640
-        h = 480
+    image_size = string_to_intarray(args.image_size)
+    w = image_size[0]
+    h = image_size[1]
 
     config = args.config
 
