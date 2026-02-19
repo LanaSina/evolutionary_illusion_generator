@@ -32,7 +32,7 @@ class PWCNet(nn.Module):
 
     def forward(self, im1, im2):
         '''
-        Input: images \in [0,1]
+        Input: images in [0,1]
         '''
 
         flow = pwcnet.estimate(im1, im2, self.pwcnet)
@@ -66,7 +66,7 @@ class RAFT(nn.Module):
 
     def forward(self, im1, im2):
         '''
-        Input: images \in [0,1]
+        Input: images in [0,1]
         '''
 
         # Normalize to [0, 255]

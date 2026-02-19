@@ -142,7 +142,7 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
 
 
 def test_prednet_pytorch(initmodel, sequence_list, size, channels, gpu, output_dir="result", 
-                skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
+                skip_save_frames=0, extension_start=0, extension_duration=20, offset = [0,0], 
                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
 
     #Create Model

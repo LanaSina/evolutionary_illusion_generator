@@ -87,7 +87,7 @@ class CorrWise(nn.Module):
             
         scale_clip [float] :
             if true, then use scale the flow (`clip` is a misnomer) by
-            1 - \epsilon, \epsilon set as value of this arg
+            1 - epsilon, epsilon set as value of this arg
             
         device [int] :
             device to use, if None, then don't move tensors around
@@ -190,7 +190,7 @@ class CorrWise(nn.Module):
             
     def get_cycle_consistency(self, im1, im2, flow_forward=None, flow_backward=None):
         '''
-        Calculates F(im1, im2) \circ F(im2, im1)
+        Calculates F(im1, im2) circ F(im2, im1)
         This tells us how cycle consistent the flow is
         '''
         
