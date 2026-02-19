@@ -494,8 +494,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
    
     image_list = [None] * n_pop
-    #repeated_images_list = [None] * (total_count + repeat)
-    # i = 0
+
     image_inputs = create_grid(structure, w, h, 10)
     for genome_id, genome in population:
         # genome id starts at i
@@ -519,29 +518,25 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
                  )
     # calculate flows
     print("Calculating flows...")
-    i = 0
-    original_vectors = [None] * total_count
-    for input_image in images_list:
-        index_0 = int(i * (repeat / skip) + repeat - 1)
-        index_1 = index_0 + extension_duration - 1
-        prediction_0 = prediction_dir + str(index_0).zfill(10) + ".png"
-        prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
+    original_vectors = [None] * n_pop
+    for i, input_image in enumerate(image_list):
+        prediction = prediction_dir + str(i).zfill(10) + ".png"
+        # prediction_1 = prediction_dir + str(index_1).zfill(10) + "_extended.png"
 
         save_name = output_dir + "/images/" + str(i).zfill(10) + "_f.png"
-        results = lucas_kanade(prediction_0, prediction_1, output_dir + "/flow/", save=True, verbose=0,
+        results = lucas_kanade(input_image, prediction, output_dir + "/flow/", save=True, verbose=0,
                                save_name=save_name)
         if results["vectors"]:
             original_vectors[i] = np.asarray(results["vectors"])
         else:
             original_vectors[i] = [[0, 0, -1000, 0]]
-        i = i + 1
 
     # calculate score
     print("Calculating scores...")
-    scores = [None] * len(population)
-    for i in range(0, len(population)):
+    scores = [None] * n_pop
+    for i in range(0, n_pop):
         final_score = -100
-        # traverse latent space
+        # traverse latent space (not)
         # is this a mean score per family?
         for j in range(0, int(2 / s_step)): # this is currenly 1
             index = i * pertype_count + j

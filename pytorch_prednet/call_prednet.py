@@ -101,8 +101,15 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
         if(i<len(imagelist)-1):
             if verbose == 1:
                 print("step ", step," frame ", i)
+
+            num = str(offset*20+i).zfill(10)
+            new_filename = output_dir + '/' + num + '_test.png'
+            if verbose == 1:
+                print("writing ", new_filename)
+            write_image(pred[0].detach().cpu().numpy(), new_filename)
+            
         else:
-            num = str(offset+step).zfill(10)
+            num = str(offset).zfill(10)
             new_filename = output_dir + '/' + num + '.png'
             if verbose == 1:
                 print("writing ", new_filename)
@@ -155,19 +162,17 @@ def test_prednet_pytorch(initmodel, image_list, size, channels, gpu, output_dir=
     prednet.load_state_dict(torch.load(initmodel))
     
 
-    # Init/Resume
-    # serializers.load_npz(initmodel, model)
-
     logf = open('test_log.txt', 'w')
     step = 0
     repeat = 20
 
+    # there should be resetting here
     for n, image in enumerate(image_list):
         sequence_list = [image]*repeat
         if verbose == 1:
             print("sequence_list ", sequence_list)
 
-        offset = n*20
+        offset = n
         step = test_image_list(prednet, sequence_list, output_dir, channels, size, offset,
                                 gpu, logf, skip_save_frames, extension_start, extension_duration,
                                 reset_each, step, verbose, reset_at, input_len, c_dim)
