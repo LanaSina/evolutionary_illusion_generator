@@ -594,8 +594,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
             final_score = score
             temp_index = i
 
-        m = score / pertype_count
-        scores[i] = [i, m]
+        scores[i] = [i, score]
 
     print("scores", scores)
     i = 0
