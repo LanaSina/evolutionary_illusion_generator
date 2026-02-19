@@ -54,7 +54,7 @@ class ImageListDataset(Dataset):
 
     def load_images(self, img_paths, c_space="RGB"):
         self.img_paths = img_paths
-        self.mode = "img" if os.path.splitext(self.img_paths[0][0])[-1] == ".jpg" else "audio"
+        self.mode = "img" 
         self.c_space = c_space
 
     def __getitem__(self, index):

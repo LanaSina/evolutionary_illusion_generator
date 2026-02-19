@@ -538,62 +538,61 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         final_score = -100
         # traverse latent space (not)
         # is this a mean score per family?
-        for j in range(0, int(2 / s_step)): # this is currenly 1
-            index = i * pertype_count + j
-            score = 0
-            score_d = 0
 
-            if structure == StructureType.Bands:
-                ratio = plausibility_ratio(original_vectors[index], 0.15)
-                score_0 = ratio[0]
-                good_vectors = ratio[1]
+        score = 0
+        score_d = 0
 
-                if (len(good_vectors) > 0):
-                    stripes = 4
-                    step = h / stripes
-                    score_direction = horizontal_symmetry_score(good_vectors, [0, step * 2])
+        if structure == StructureType.Bands:
+            ratio = plausibility_ratio(original_vectors[i], 0.15)
+            score_0 = ratio[0]
+            good_vectors = ratio[1]
 
-                    # bonus for strength
-                    score_d = score_direction  # *min(1,score_strength)
+            if (len(good_vectors) > 0):
+                stripes = 4
+                step = h / stripes
+                score_direction = horizontal_symmetry_score(good_vectors, [0, step * 2])
 
-            elif structure == StructureType.Circles \
-                    or structure == StructureType.CirclesFree:
-                max_strength = 0.3  # 0.4
-                print(len(original_vectors[0]), " vectors")
-                ratio = plausibility_ratio(original_vectors[index], max_strength)
-                score_0 = ratio[0]
-                good_vectors = ratio[1]
-                min_vectors = 24 #((2 * math.pi) / (math.pi / 4.0)) * 3
-                print("plausibility_ratio ", score_0, "; " , len(good_vectors), " good_vectors ")
+                # bonus for strength
+                score_d = score_direction  # *min(1,score_strength)
 
-
-                if (len(good_vectors) > min_vectors):
-                    # get tangent scores
-                    limits = [0, h / 2]
-                    score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[index])
-                    score_strength = strength_number(good_vectors, max_strength)
-                    score_d = 0.7 * score_direction + 0.3 * score_strength
-                    print("score_direction ", score_direction, " score_strength ", score_strength)
+        elif structure == StructureType.Circles \
+                or structure == StructureType.CirclesFree:
+            max_strength = 0.3  # 0.4
+            print(len(original_vectors[0]), " vectors")
+            ratio = plausibility_ratio(original_vectors[i], max_strength)
+            score_0 = ratio[0]
+            good_vectors = ratio[1]
+            min_vectors = 24 #((2 * math.pi) / (math.pi / 4.0)) * 3
+            print("plausibility_ratio ", score_0, "; " , len(good_vectors), " good_vectors ")
 
 
-            elif structure == StructureType.Free:
-                max_strength = 0.4
-                ratio = plausibility_ratio(original_vectors[index], max_strength)
-                good_vectors = ratio[1]
+            if (len(good_vectors) > min_vectors):
+                # get tangent scores
+                limits = [0, h / 2]
+                score_direction = rotation_symmetry_score(good_vectors, w, h, limits, images_list[i])
+                score_strength = strength_number(good_vectors, max_strength)
+                score_d = 0.7 * score_direction + 0.3 * score_strength
+                print("score_direction ", score_direction, " score_strength ", score_strength)
 
-                if (len(good_vectors) > 0):
-                    score_strength = strength_number(good_vectors, max_strength)
-                    score_number = min(len(good_vectors), 15) / 15
-                    score_s = swarm_score(good_vectors)
-                    score_d = 0.5 * score_s + 0.1 * score_strength + 0.4 * score_number
-            else:
-                score_d = inside_outside_score(good_vectors, w, h)
 
-            score = score + score_d
+        elif structure == StructureType.Free:
+            max_strength = 0.4
+            ratio = plausibility_ratio(original_vectors[i], max_strength)
+            good_vectors = ratio[1]
 
-            if score > final_score:
-                final_score = score
-                temp_index = index
+            if (len(good_vectors) > 0):
+                score_strength = strength_number(good_vectors, max_strength)
+                score_number = min(len(good_vectors), 15) / 15
+                score_s = swarm_score(good_vectors)
+                score_d = 0.5 * score_s + 0.1 * score_strength + 0.4 * score_number
+        else:
+            score_d = inside_outside_score(good_vectors, w, h)
+
+        score = score + score_d
+
+        if score > final_score:
+            final_score = score
+            temp_index = i
 
         m = score / pertype_count
         scores[i] = [i, m]

@@ -54,11 +54,31 @@ def write_image(image, path):
     result.save(path)
 
 # imagelist = [path, path, path]
-def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu, logf, skip_save_frames=0, 
+def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu, skip_save_frames=0, 
     extension_start=0, extension_duration=100, reset_each = False, step = 0, verbose = 1, reset_at = -1, input_len=-1, c = 3):
 
-    if verbose==1:
-        print("extension_duration ", extension_duration)
+    # # ----
+    # print("here")
+    # img_dataset = ImageListDataset(img_size=size,
+    #                                input_len=20, channels=channels)
+    # img_dataset.load_images(img_paths=sequence_list, c_space="RGB")
+    # data_loader = DataLoader(img_dataset, batch_size=1, shuffle=False, num_workers=1)
+      
+    # for i, data in enumerate(tqdm(data_loader, unit="batch")):
+    #     for j in range(len(data)):
+    #         for k in range(20):
+    #             start_idx = 0
+    #             x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, channels[0], size[1], size[0])
+    #             with torch.no_grad():
+    #                 with torch.amp.autocast('cuda',enabled=args.useamp):#with torch.cuda.amp.autocast(enabled=args.useamp):
+    #                     pred, errors, eval_index = prednet(x_batch.to(device))
+    #             file_name = 'result/test_' + str(k + (i * args.batchsize + j) * args.input_len ) + 'y_0'
+    #             print("writing b ", file_name)
+    #             write_image(pred[0].detach().cpu().numpy(), file_name,
+    #                         img_dataset.mode, args.color_space)
+
+    # # ----
+
 
     # xp = cuda.cupy if gpu >= 0 else np
     # 　this should be replaced
@@ -68,8 +88,11 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
     # prednet.reset_state()
     loss = 0
     batchSize = 1
-    x_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
-    y_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
+    # x_batch = np.ndarray((batchSize, channels[0], size[1], size[0]), dtype=np.float32)
+    # x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, channels[0], size[1], size[0])
+    x_batch = np.ndarray((batchSize, 2, channels[0], size[1], size[0]), dtype=np.float32)
+
+    y_batch = np.ndarray((batchSize, 2, channels[0], size[1], size[0]), dtype=np.float32)
     # ? 
     useamp = True
 
@@ -82,7 +105,7 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
         if input_len>0 and i>input_len:
             break
 
-        x_batch[0] =  torch.Tensor(read_image(imagelist[i], size, offset, c))
+        x_batch[0, 0] =  torch.Tensor(read_image(imagelist[i], size, offset, c))
         x_batch =  torch.Tensor(x_batch)
         x_batch.to(device)
         # x_batch[0] = data[0, 0:i+2].view(1, i + 2, channels[0], size[1], size[0])
@@ -101,13 +124,6 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
         if(i<len(imagelist)-1):
             if verbose == 1:
                 print("step ", step," frame ", i)
-
-            num = str(offset*20+i).zfill(10)
-            new_filename = output_dir + '/' + num + '_test.png'
-            if verbose == 1:
-                print("writing ", new_filename)
-            write_image(pred[0].detach().cpu().numpy(), new_filename)
-            
         else:
             num = str(offset).zfill(10)
             new_filename = output_dir + '/' + num + '.png'
@@ -123,7 +139,7 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
 
         # if gpu >= 0: model.to_cpu() # cpu is typo?
         # why this
-        x_batch[0] = pred[0]#.detach()#.cpu() # .numpy()
+        # x_batch[0,0] = pred[0]#.detach()#.cpu() # .numpy()
         # if gpu >= 0: model.to_gpu()
 
     return step
@@ -134,47 +150,49 @@ def test_prednet_pytorch(initmodel, image_list, size, channels, gpu, output_dir=
                 skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
                 reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
 
-    #Create Model
-    # prednet = net.PredNet(size[0], size[1], channels)
-    # model = L.Classifier(prednet, lossfun=mean_squared_error)
-    # model.compute_accuracy = False
-   
 
     # this should be replaced
     device = torch.device("cpu")
-    prednet = prednet_model.PredNet(channels, device=device)
-
-    # if gpu >= 0:
-    #     cuda.check_cuda_available()
-    #     xp = cuda.cupy
-    #     cuda.get_device(gpu).use()
-    #     model.to_gpu()
-    #     print('Running on GPU')
-    # else:
-    #     xp = np
-
-    #     print('Running on CPU')
-
+    prednet = prednet_model.PredNet(channels, device=device, diff_mode="pos_neg")
     prednet.to(device)
     prednet.eval()
 
     print('Load model from', initmodel)
     prednet.load_state_dict(torch.load(initmodel))
-    
-
-    logf = open('test_log.txt', 'w')
-    step = 0
+        
     repeat = 20
+    step = 0
 
     # there should be resetting here
     for n, image in enumerate(image_list):
         sequence_list = [image]*repeat
-        if verbose == 1:
-            print("sequence_list ", sequence_list)
+        
+        # # ----
+        # print("here")
+        # img_dataset = ImageListDataset(img_size=size,
+        #                                input_len=20, channels=channels)
+        # img_dataset.load_images(img_paths=sequence_list, c_space="RGB")
+        # data_loader = DataLoader(img_dataset, batch_size=1, shuffle=False, num_workers=1)
+          
+        # for i, data in enumerate(tqdm(data_loader, unit="batch")):
+        #     for j in range(len(data)):
+        #         for k in range(20):
+        #             start_idx = 0
+        #             x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, channels[0], size[1], size[0])
+        #             with torch.no_grad():
+        #                 with torch.amp.autocast('cuda',enabled=args.useamp):#with torch.cuda.amp.autocast(enabled=args.useamp):
+        #                     pred, errors, eval_index = prednet(x_batch.to(device))
+        #             file_name = 'result/test_' + str(k + (i * args.batchsize + j) * args.input_len ) + 'y_0'
+        #             print("writing b ", file_name)
+        #             write_image(pred[0].detach().cpu().numpy(), file_name,
+        #                         img_dataset.mode, args.color_space)
+
+        # # ----
+
 
         offset = n
         step = test_image_list(prednet, sequence_list, output_dir, channels, size, offset,
-                                gpu, logf, skip_save_frames, extension_start, extension_duration,
+                                gpu, skip_save_frames, extension_start, extension_duration,
                                 reset_each, step, verbose, reset_at, input_len, c_dim)
         
 
