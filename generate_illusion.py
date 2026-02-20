@@ -499,11 +499,10 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     e_w = 800
     e_h = 800
     e_grid = enhanced_image_grid(e_w, e_h, structure)
+    index = 0
 
     for genome_id, genome in population:
-        # genome id starts at i
-        index = genome_id - 1
-
+        # genome id gets >> npop
         # sadly building enhanced after choosing best illusion breaks the thing
         image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
         e_image = get_image_from_cppn(e_grid, genome, c_dim, e_w, e_h, config, bg=1, gradient=gradient)
@@ -511,10 +510,11 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         # save  image
         image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
         image_whitebg.save(image_name, "PNG")
-        print("#### index ", index, " n_pop ", n_pop, "len(image_list)", "len(image_list)" )
+        print("#### index ", index, " n_pop ", n_pop, "len(image_list)", len(image_list))
         image_list[index] = image_name
         e_image_name = output_dir + "images/" + str(index).zfill(10) + "_enhanced.png"
         e_image.save(e_image_name)
+        index = index + 1
 
     print("Predicting illusions...")
     skip = 1
@@ -612,7 +612,6 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     best_genome = None
 
     for genome_id, genome in population:
-
         s = scores[i][1]
         print("genome id ", genome_id, " i ", i , " score ", s)
         genome.fitness = s
