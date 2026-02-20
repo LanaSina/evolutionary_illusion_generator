@@ -511,6 +511,7 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
         # save  image
         image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
         image_whitebg.save(image_name, "PNG")
+        print("#### index ", index, " n_pop ", n_pop, "len(image_list)", "len(image_list)" )
         image_list[index] = image_name
         e_image_name = output_dir + "images/" + str(index).zfill(10) + "_enhanced.png"
         e_image.save(e_image_name)
