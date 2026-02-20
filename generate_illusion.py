@@ -58,8 +58,8 @@ def fill_circle(x, y, xx, yy, max_radius, direction, structure=StructureType.Cir
         for i in range(1, n_ratios - 1):
             if radius > r_ratios[i]:
                 r = (radius - r_ratios[i]) / (r_ratios[i - 1] - r_ratios[i])
-                if direction < 0:
-                    r = 1-r
+                # if direction < 0:
+                #     r = 1-r
                 radius_index = n_ratios - i - 1
                 break;
 
@@ -496,16 +496,24 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     image_list = [None] * n_pop
 
     image_inputs = create_grid(structure, w, h, 10)
+    e_w = 800
+    e_h = 800
+    e_grid = enhanced_image_grid(e_w, e_h, structure)
+
     for genome_id, genome in population:
         # genome id starts at i
         index = genome_id - 1
 
+        # sadly building enhanced after choosing best illusion breaks the thing
         image_whitebg = get_image_from_cppn(image_inputs, genome, c_dim, w, h, config, gradient=gradient) #  get_image_from_cppn
+        e_image = get_image_from_cppn(e_grid, genome, c_dim, e_w, e_h, config, bg=1, gradient=gradient)
 
         # save  image
         image_name = output_dir + "images/" + str(index).zfill(10) + ".png"
         image_whitebg.save(image_name, "PNG")
         image_list[index] = image_name
+        e_image_name = output_dir + "images/" + str(index).zfill(10) + "_enhanced.png"
+        e_image.save(e_image_name)
 
     print("Predicting illusions...")
     skip = 1
@@ -601,40 +609,36 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
     best_score = 0
     best_illusion = 0
     best_genome = None
+
     for genome_id, genome in population:
-        genome.fitness = scores[i][1]
-        if (scores[i][1] >= best_score):
+
+        s = scores[i][1]
+        print("genome id ", genome_id, " i ", i , " score ", s)
+        genome.fitness = s
+        if (s >= best_score):
             best_illusion = i
-            best_score = scores[i][1]
+            best_score = s
             best_genome = genome
-  
+            print("best changed to ", i, s)
+          
         i = i + 1
 
     # save best illusion
-    print("best", best_score, image_name, best_illusion)
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + ".png"
+    print("best", best_score, image_name, best_illusion)
     move_to_name = best_dir + "/best.png"
+    print("saving at ", move_to_name)
     shutil.copy(image_name, move_to_name)
-    index = int(best_illusion * (repeat / skip) + repeat - 1)
     image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_f.png"
     move_to_name = best_dir + "/best_flow.png"
     shutil.copy(image_name, move_to_name)
     # show in colab
     cv2_imshow(cv2.imread(move_to_name))
 
-    image_blackbg = get_image_from_cppn(image_inputs, best_genome, c_dim, w, h, config, bg=0, gradient=gradient)
-    image_name = best_dir + "/best_black_bg.png"
-    image_blackbg.save(image_name, "PNG")
-
-    # create enhanced image
-    e_w = 800
-    e_h = 800
-    e_grid = enhanced_image_grid(e_w, e_h, structure)
-    image = get_image_from_cppn(e_grid, population[best_illusion][1], c_dim, e_w, e_h, config, bg=1, gradient=gradient)
-    image_name = best_dir + "/enhanced.png"
-    image.save(image_name)
-    # show in colab
-    cv2_imshow(cv2.imread(image_name))
+    image_name = output_dir + "/images/" + str(best_illusion).zfill(10) + "_enhanced.png"
+    move_to_name = best_dir + "/best_enhanced.png"
+    shutil.copy(image_name, move_to_name)
+    cv2_imshow(cv2.imread(move_to_name))
 
 
 def neat_illusion(output_dir, model_name, config_path, structure, w, h, channels, c_dim=3, checkpoint=None, gradient=1, verbose=0):
