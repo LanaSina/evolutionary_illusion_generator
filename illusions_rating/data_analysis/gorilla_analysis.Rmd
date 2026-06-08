@@ -5,12 +5,16 @@ date: '2023-04-04'
 output: html_document
 ---
 
+# Analysis of motion illusions data
+
 ```{r}
 dir_path = "../gorilla_data/2025/data_exp_88447-v25/"
 
+todo use unique(demographics_df$Status)
 ```
 
-list all data files
+## List all data files
+
 ```{r}
 # dir_path = paste(base_path, sub_folder, sep="")
 
@@ -27,8 +31,7 @@ for (dir in dir_list){
 # print(files_list)
 ```
 
-## read
-
+## Read data
 
 ```{r}
 results = data.frame()
@@ -99,7 +102,7 @@ results = subset(results, !results$participant_id %in% sub$Participant.External.
 
 
 
-Plot histograms
+## Plot histograms
 
 ```{r}
 # Humans 1st, then bw ai, then color, then special
@@ -116,7 +119,7 @@ for (id in id_order) {
 
 ```
 
-Normalize answers
+## Normalize answers
 
 ```{r}
 results$normalized = 0
@@ -154,7 +157,7 @@ for (id in id_order) {
 
 ```
 
-Bin by 3 for readability
+## Bin by 3 for readability
 
 ```{r}
 par(mfrow = c(2, 5))
@@ -177,7 +180,7 @@ title(xlab = "Normalized Strength",
 
 
 
-Calculate median with normalized values
+## Calculate median with normalized values
 
 ```{r}
 
@@ -197,7 +200,9 @@ colnames(ill_ave) = c("id", "name", "mean_strength", "median_strength", "sd")
 
 ```
 
-Average and median
+
+## Average and median
+
 ```{r}
 n = length(ill_ave$name)
 plot(ill_ave$id, ill_ave$mean_strength, xaxt="n", ylim = c(0, 5), 
@@ -212,7 +217,7 @@ axis(side=1, at=seq(2,n,2), labels=pretty_names[seq(2,n,2)], cex.axis=0.8, padj 
 ```
 
 
-Read data from EIGen own evaluation
+## Read data from EIGen own evaluation
 
 ```{r}
 file_path = "../gorilla_data/2025/eigen_own_ratings.csv"
@@ -223,7 +228,7 @@ all_ratings = all_ratings[order(all_ratings$id), ]
 ```
 
 
-Median of normalized, with errors
+## Median of normalized values, with errors
 
 ```{r}
 
@@ -251,7 +256,7 @@ axis(side=1, at=seq(2,n,2), labels=pretty_names[id_order][seq(2,n,2)], cex.axis=
 ```
 
 
-Plot qualitative observations
+## Plot qualitative observations
 
 ```{r}
 
@@ -303,6 +308,31 @@ comments = results$qual_comment[results$qual_comment != ""]
 comments
 ```
 
+---- Figures for demographic data ----
+
+## Preprocessing. Skip if you have downloaded the demographics.csv file
+
+```{r}
+demographics_df = read.csv("../prolific_demographics/prolific_demographic_export_67e4d8aad6876bff90464913.csv")
+
+# remove irrelevant info
+unique(demographics_df$Status)
+demographics_df$Custom.study.tncs.accepted.at = NULL
+demographics_df$Completion.code = NULL
+
+# convert numbers
+demographics_df$Age = as.numeric(as.character(demographics_df$Age))
+
+# save
+write.csv2(demographics_df, "../gorilla_data/2025/demographics.csv", row.names = FALSE)
+```
+
+
+## Make figures
+
+```{r}
+hist(demographics_df$Age)
+```
 
 
 ---- deprecated
