@@ -51,6 +51,7 @@ for (dir in dir_list){
 }
 ```
 
+
 ## Read data
 
 ```{r}
@@ -59,7 +60,6 @@ results = data.frame()
 for (file_path in files_list){ # [-1]
   df = read.csv(file_path, stringsAsFactors=F)
   
-  # todo use not n
   if(df[2,27] != "Bot Checks: Visual Search" 
      & df[2,27] != "Instructional Manipulation"
      & df[2,27] != "Consent"
@@ -106,18 +106,36 @@ pretty_names = c("Fraser Wilcox", "AI Color Radial 1", "AI b/w Radial 1", "AI Me
 ```
 
 
-Remove participant that answered "dog" on attention test
+List files tasks for later
 
 ```{r}
-# cat selection test
-# private_ids = c()
-# ext_ids = c()
+for (file_id in c(1:length(files_list))){
+  file_path = files_list[file_id]
+  df = read.csv(file_path, stringsAsFactors=F)
+  print(file_id)
+  print(unique(df$Task.Name))
+}
+```
 
+
+Remove participants who did not answer "cat" on attention test, participants who failed on instructional manipulatio and participants who revoked consent
+
+```{r}
 file_path = files_list[15]
 df = read.csv(file_path, stringsAsFactors=F)
-sub = subset(df, df$Response == "dog4.jpg")
+sub = subset(df, df$Response == "cat2.jpg")
+results = subset(results, results$participant_id %in% sub$Participant.External.Session.ID)
 
-results = subset(results, !results$participant_id %in% sub$Participant.External.Session.ID)
+
+file_path = files_list[3]
+df = read.csv(file_path, stringsAsFactors=F)
+unique(df$Task.Name)
+unique(df$Multiple.Choice.object.4.Response)
+sub = subset(df, df$Multiple.Choice.object.4.Response == "Purple")
+results = subset(results, results$participant_id %in% sub$Participant.External.Session.ID)
+
+# cross reference with demographics data approved list
+results = subset(results, results$participant_id %in% demographics_df$Submission.id)
 ```
 
 
@@ -139,6 +157,7 @@ for (id in id_order) {
 
 ```
 
+
 ## Normalize answers
 
 ```{r}
@@ -158,8 +177,6 @@ for (p_id in participant_ids){
     print(max(p$strength))
   }
 }
-
-# then we should crop to 3
 ```
 
 ```{r}
@@ -180,6 +197,12 @@ for (id in id_order) {
 ## Bin by 3 for readability
 
 ```{r}
+
+# save as pdf
+pdf(file = paste0(figures_path, "strength.pdf"),   # The directory you want to save the file in
+    width = 8, # The width of the plot in inches
+    height = 5) #
+
 par(mfrow = c(2, 5))
 
 for (id in id_order) {
@@ -195,8 +218,28 @@ title(xlab = "Normalized Strength",
       ylab = "Frequency",
       outer = TRUE, line = 3)
 
+dev.off()
+
 ```
 
+
+How many say the snakes do not rotate?
+
+```{r}
+id = 9 # snakes
+sub = subset(results, results$illusion_id == id)
+n = length(sub$participant_id)
+hist(sub$normalized)
+length(subset(sub, normalized <= 0.33)$participant_id)/n
+
+# How many said the control rotated?
+
+id = 7 # control
+sub = subset(results, results$illusion_id == id)
+n = length(sub$participant_id)
+hist(sub$normalized)
+length(subset(sub, normalized > 0.33)$participant_id)/n
+```
 
 
 
@@ -303,6 +346,11 @@ for (i in c(1,length(ids$illusion_name))) {
 ```{r}
 eigen_predictions = c("s", "s", "s", "r", "r", "r", "-", "s", "r", "s")
 
+# save as pdf
+pdf(file = paste0(figures_path, "orientiation.pdf"),   # The directory you want to save the file in
+    width = 8, # The width of the plot in inches
+    height = 5) #
+
 par(mfrow = c(2, 5))
 
 i = 0
@@ -320,6 +368,8 @@ for (id in id_order) {
        labels = c("r","s","rs","o"), xaxt='n'
        )
 }
+
+dev.off()
 
 ```
 
