@@ -9,15 +9,37 @@ output: html_document
 
 ```{r}
 dir_path = "../gorilla_data/2025/data_exp_88447-v25/"
-
-todo use unique(demographics_df$Status)
+figures_path = "./images/"
 ```
+
+
+
+## Preprocessing. Skip if you have downloaded the demographics.csv file
+
+```{r}
+demographics_df = read.csv("../prolific_demographics/prolific_demographic_export_67e4d8aad6876bff90464913.csv")
+
+# remove irrelevant info
+unique(demographics_df$Status)
+demographics_df$Custom.study.tncs.accepted.at = NULL
+demographics_df$Completion.code = NULL
+
+# Remove excluded people
+a = demographics_df$Status == "APPROVED"
+a = demographics_df[a,]
+demographics_df = a
+
+# convert numbers
+demographics_df$Age = as.numeric(as.character(demographics_df$Age))
+
+# save
+write.csv2(demographics_df, "../gorilla_data/2025/demographics.csv", row.names = FALSE)
+```
+
 
 ## List all data files
 
 ```{r}
-# dir_path = paste(base_path, sub_folder, sep="")
-
 dir_list = list.files(path = dir_path)
 files_list = c()
 
@@ -27,8 +49,6 @@ for (dir in dir_list){
   # files_list = c(files_list, paste(final_dir_path, temp_list, sep="/"))
   files_list = c(files_list, final_dir_path)
 }
-
-# print(files_list)
 ```
 
 ## Read data
@@ -308,30 +328,45 @@ comments = results$qual_comment[results$qual_comment != ""]
 comments
 ```
 
+
 ---- Figures for demographic data ----
-
-## Preprocessing. Skip if you have downloaded the demographics.csv file
-
-```{r}
-demographics_df = read.csv("../prolific_demographics/prolific_demographic_export_67e4d8aad6876bff90464913.csv")
-
-# remove irrelevant info
-unique(demographics_df$Status)
-demographics_df$Custom.study.tncs.accepted.at = NULL
-demographics_df$Completion.code = NULL
-
-# convert numbers
-demographics_df$Age = as.numeric(as.character(demographics_df$Age))
-
-# save
-write.csv2(demographics_df, "../gorilla_data/2025/demographics.csv", row.names = FALSE)
-```
 
 
 ## Make figures
 
 ```{r}
-hist(demographics_df$Age)
+save_as_pdf = function(my_plot, name){
+  pdf(file = paste0(figures_path, name),   # The directory you want to save the file in
+    width = 8, # The width of the plot in inches
+    height = 5) # 
+  
+  my_plot
+  
+  dev.off()
+}
+```
+
+
+```{r}
+# Age
+# save as pdf
+pdf(file = paste0(figures_path, "demographics-age.pdf"),   # The directory you want to save the file in
+    width = 8, # The width of the plot in inches
+    height = 5) # 
+
+hist(demographics_df$Age, xlab = "Age", xlim = c(0,100), main = "")
+
+dev.off()
+```
+
+```{r}
+# Sex
+# my_plot =
+hist(demographics_df$Sex, xlab = "Sex", main = "")
+
+unique(demographics_df$Sex)
+
+
 ```
 
 
