@@ -200,7 +200,7 @@ for (id in id_order) {
 
 # save as pdf
 pdf(file = paste0(figures_path, "strength.pdf"),   # The directory you want to save the file in
-    width = 8, # The width of the plot in inches
+    width = 7, # The width of the plot in inches
     height = 5) #
 
 par(mfrow = c(2, 5))
@@ -210,7 +210,9 @@ for (id in id_order) {
   hist(sub$normalized, main=pretty_names[id], 
        # xlab = "Normalized Strength", 
        ylim = c(0,300),
-       breaks = seq(0, 1, length.out = 4)
+       breaks = seq(0, 1, length.out = 4),
+       cex.axis=1.2, 
+       cex.main=0.95, 
        )
 }
 
@@ -318,6 +320,25 @@ axis(side=1, at=seq(2,n,2), labels=pretty_names[id_order][seq(2,n,2)], cex.axis=
 
 ```
 
+## Statistical significance tests
+
+```{r}
+# Welch Two Sample t-test: https://www.datacamp.com/tutorial/t-tests-r-tutorial
+# Check if each illusion data is different from control
+control_image_results = subset(results, results$illusion_id == 7)
+
+wt_test = data.frame()
+
+for (i in c(1:length(ids$illusion_id))){
+  sub = subset(results, results$illusion_id == ids$illusion_id[i])
+  a = t.test(control_image_results$strength, sub$strength)
+  wt_test = rbind(wt_test, c(ids$illusion_name[i], ids$illusion_id[i], a$p.value))
+}
+
+colnames(wt_test) = c("illusion_name", "illusion_id", "p_value")
+wt_test
+```
+
 
 ## Plot qualitative observations
 
@@ -347,8 +368,8 @@ for (i in c(1,length(ids$illusion_name))) {
 eigen_predictions = c("s", "s", "s", "r", "r", "r", "-", "s", "r", "s")
 
 # save as pdf
-pdf(file = paste0(figures_path, "orientiation.pdf"),   # The directory you want to save the file in
-    width = 8, # The width of the plot in inches
+pdf(file = paste0(figures_path, "orientation.pdf"),   # The directory you want to save the file in
+    width = 7, # The width of the plot in inches
     height = 5) #
 
 par(mfrow = c(2, 5))
@@ -365,7 +386,11 @@ for (id in id_order) {
        xlab = "",
        ylim = c(0,170),
        breaks = seq(0, 4, length.out = 5),
-       labels = c("r","s","rs","o"), xaxt='n'
+       labels = c("r","s","rs","o"), xaxt='n',
+       # cex.lab=1.5, 
+       cex.axis=1.2, 
+       cex.main=1, 
+       # cex.sub=1.5
        )
 }
 
