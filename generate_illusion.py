@@ -15,7 +15,7 @@ from pytorch_neat.pytorch_neat.cppn import create_cppn
 from pytorch_neat.pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.pytorch_neat.neat_reporter import LogReporter
 from pytorch_neat.pytorch_neat.recurrent_net import RecurrentNet
-from random import random, randrange
+# from random import random, randrange
 import shutil
 import torch
 from fitness_calculator import *
@@ -476,7 +476,7 @@ def pil_to_cv2(image, c_dim):
 
 # population:  [id, net]
 def get_fitnesses_neat(structure, population, model_name, config, w, h, channels,
-                       id=0, c_dim=3, best_dir=".", gradient=1, verbose=0):
+                       id=0, c_dim=3, best_dir=".", gradient=1, verbose=0, jitter=0):
     print("Calculating fitnesses of populations: ", len(population))
     n_pop = len(population)
     output_dir = "temp/"
@@ -518,13 +518,15 @@ def get_fitnesses_neat(structure, population, model_name, config, w, h, channels
 
     print("Predicting illusions...")
     skip = 1
-    extension_duration = 0 # was 2
+    extension_duration = 0 
+
     # runs repeat x times on the input image, save in result folder
     test_prednet_pytorch(initmodel=model_name, image_list=image_list, size=size,
                  channels=channels, gpu=gpu, output_dir=prediction_dir, skip_save_frames=skip,
                  extension_start=repeat, extension_duration=extension_duration,
-                 reset_at=repeat + extension_duration, verbose=verbose, c_dim=c_dim
+                 reset_at=repeat + extension_duration, verbose=verbose, c_dim=c_dim, jitter=jitter
                  )
+
     # calculate flows
     print("Calculating flows...")
     original_vectors = [None] * n_pop
@@ -704,6 +706,8 @@ if __name__ == "__main__":
     parser.add_argument('--channels', '-ch', default='3,48,96,192', help='Number of channels on each layers')
     parser.add_argument('--gradient', '-g', default=1, type=int, help='1 to use gradients, 0 for pure colors')
     parser.add_argument('--verbose', '-verbose', default=0, type=int, help='1 for verbose')
+    parser.add_argument('--jitter', '-j', default=0, type=int, help='1 to add jitter to the input image')
+
 
     args = parser.parse_args()
     output_dir = args.output_dir

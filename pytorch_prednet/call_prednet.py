@@ -16,7 +16,7 @@ from tqdm import tqdm
 from distutils.util import strtobool
 from pytorch_prednet.dataset import ImageListDataset, ImageHDF5Dataset
 from pytorch_prednet.corr_wise import CorrWise
-
+from random import random
 
 # return the sorted list of images in that folder
 def make_list(images_dir, limit):
@@ -148,7 +148,7 @@ def test_image_list(prednet, imagelist, output_dir, channels, size, offset, gpu,
 # image list: non repeating list
 def test_prednet_pytorch(initmodel, image_list, size, channels, gpu, output_dir="result", 
                 skip_save_frames=0, extension_start=0, extension_duration=0, offset = [0,0], 
-                reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3):
+                reset_each = False, verbose = 1, reset_at = -1, input_len=-1, c_dim = 3, jitter = 0):
 
 
     # this should be replaced
@@ -165,35 +165,32 @@ def test_prednet_pytorch(initmodel, image_list, size, channels, gpu, output_dir=
 
     # there should be resetting here
     for n, image in enumerate(image_list):
-        sequence_list = [image]*repeat
-        
-        # # ----
-        # print("here")
-        # img_dataset = ImageListDataset(img_size=size,
-        #                                input_len=20, channels=channels)
-        # img_dataset.load_images(img_paths=sequence_list, c_space="RGB")
-        # data_loader = DataLoader(img_dataset, batch_size=1, shuffle=False, num_workers=1)
-          
-        # for i, data in enumerate(tqdm(data_loader, unit="batch")):
-        #     for j in range(len(data)):
-        #         for k in range(20):
-        #             start_idx = 0
-        #             x_batch = data[j, start_idx:k+2].view(1, k + 2 - start_idx, channels[0], size[1], size[0])
-        #             with torch.no_grad():
-        #                 with torch.amp.autocast('cuda',enabled=args.useamp):#with torch.cuda.amp.autocast(enabled=args.useamp):
-        #                     pred, errors, eval_index = prednet(x_batch.to(device))
-        #             file_name = 'result/test_' + str(k + (i * args.batchsize + j) * args.input_len ) + 'y_0'
-        #             print("writing b ", file_name)
-        #             write_image(pred[0].detach().cpu().numpy(), file_name,
-        #                         img_dataset.mode, args.color_space)
-
-        # # ----
-
+        if (jitter == 0):
+            sequence_list = [image]*repeat
+        else :
+            sequence_list = jitter_image(image, repeat)
 
         offset = n
         step = test_image_list(prednet, sequence_list, output_dir, channels, size, offset,
                                 gpu, skip_save_frames, extension_start, extension_duration,
                                 reset_each, step, verbose, reset_at, input_len, c_dim)
+        
+
+def jitter_image(image, n_times):
+
+    jitter_range = 10; # todo optimize
+    sequence_list = [None]*repeat
+
+    for i in range(n_times):
+        # create blank image
+        jimage = Image.new(image.mode, (image.size[0], image.size[1]))
+        x = random.randint(-jitter_range, jitter_range)
+        y = random.randint(-jitter_range, jitter_range)
+        jimage.paste(image, (x,y))
+        sequence_list[i] = jimage
+
+    return sequence_list
+
         
 
 
