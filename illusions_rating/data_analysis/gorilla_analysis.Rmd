@@ -118,12 +118,14 @@ for (file_id in c(1:length(files_list))){
 ```
 
 
-Remove participants who did not answer "cat" on attention test, participants who failed on instructional manipulatio and participants who revoked consent
+Remove participants who did not answer "cat" on attention test, participants who failed on instructional manipulation and participants who revoked consent
 
 ```{r}
 file_path = files_list[15]
 df = read.csv(file_path, stringsAsFactors=F)
 sub = subset(df, df$Response == "cat2.jpg")
+rejected_participants = subset(df, !(df$Participant.External.Session.ID %in% sub$Participant.External.Session.ID))
+rejected_ids = unique(rejected_participants$Participant.External.Session.ID)
 results = subset(results, results$participant_id %in% sub$Participant.External.Session.ID)
 
 
@@ -132,11 +134,24 @@ df = read.csv(file_path, stringsAsFactors=F)
 unique(df$Task.Name)
 unique(df$Multiple.Choice.object.4.Response)
 sub = subset(df, df$Multiple.Choice.object.4.Response == "Purple")
+rejected_participants = subset(df, df$Response != "Purple")
+rbind(rejected_ids, unique(rejected_participants$Participant.External.Session.ID))
 results = subset(results, results$participant_id %in% sub$Participant.External.Session.ID)
 
 # cross reference with demographics data approved list
 results = subset(results, results$participant_id %in% demographics_df$Submission.id)
 ```
+
+## Subset corresponding demographics
+
+```{r}
+demographics_df_sub = subset(demographics_df, demographics_df$Submission.id %in% results$participant_id)
+mean(demographics_df_sub$Age)
+sd(demographics_df_sub$Age)
+min(demographics_df_sub$Age)
+max(demographics_df_sub$Age)
+```
+
 
 
 
